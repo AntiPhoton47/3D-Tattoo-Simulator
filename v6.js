@@ -247,7 +247,7 @@
 
   const originalRenderLibrary = renderLibrary;
   renderLibrary = function renderLibraryV6() {
-    const cats = ['All', 'Generated', 'Egyptian', 'Mythic', 'Geometry', 'Science', 'Illustration', 'Symbols', 'Text', 'Uploads'];
+    const cats = ['All', 'Generated', 'Botanical', 'Animals', 'Nature', 'Traditional', 'Geometric', 'Minimal', 'Utilities', 'Uploads'];
     const filtersEl = $('filters');
     filtersEl.innerHTML = cats.filter(cat => cat === 'All' || ASSETS.some(a => a.cat === cat)).map(cat => `<button data-cat="${cat}" class="${cat === activeFilter ? 'on' : ''}">${escapeHTML(cat)}</button>`).join('');
     for (const button of filtersEl.children) button.onclick = () => { activeFilter = button.dataset.cat; renderLibrary(); };

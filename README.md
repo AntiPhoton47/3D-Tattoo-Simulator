@@ -35,7 +35,7 @@ Placement, procedural generation, project history and uploaded artwork stay in b
 
 ## Model and artwork
 
-The bundled model is `assets/male-base-mesh-base_male.glb`: a 163-bone, MakeHuman-derived base mesh published by Innerscene under CC0. `model-data.js` contains the same model data for direct-file use. The built-in sample tattoo motifs are project-authored SVG constructions; no private reference images are bundled.
+The bundled model is `assets/male-base-mesh-base_male.glb`: a 163-bone, MakeHuman-derived base mesh published by Innerscene under CC0. `model-data.js` contains the same model data for direct-file use. The starter library contains only generic, project-authored SVG tattoo motifs; no private reference images are bundled.
 
 Full source and license details are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [MODEL_LICENSE.md](MODEL_LICENSE.md).
 

@@ -31,6 +31,16 @@ if (/<script[^>]+src=["']https?:/i.test(html)) fail('Remote executable script fo
 if (/data:image\/(?:png|jpe?g|webp);base64/i.test(html)) fail('Embedded raster reference image found in index.html');
 if (!html.includes('function normalizeImportedAsset')) fail('Imported custom artwork is missing its local-data guard');
 
+const starterLibrary = html.match(/const ASSETS=\[([\s\S]*?)\]\.map/)?.[1] || '';
+const starterIds = [...starterLibrary.matchAll(/\['([a-z0-9_]+)'/g)].map(match => match[1]);
+if (starterIds.length < 20) fail(`Starter library is unexpectedly small: ${starterIds.length} assets`);
+for (const category of ['Botanical', 'Animals', 'Nature', 'Traditional', 'Geometric', 'Minimal']) {
+  if (!starterLibrary.includes(`'${category}'`)) fail(`Missing generic starter category: ${category}`);
+}
+for (const legacyName of ['Anubis', 'Cerberus', 'Eye of Horus', 'Wigner', 'Hadamard', 'Contextuality', 'Mach–Zehnder']) {
+  if (starterLibrary.includes(legacyName)) fail(`Legacy starter artwork remains in the library: ${legacyName}`);
+}
+
 const modelSource = readFileSync('model-data.js', 'utf8');
 const encoded = modelSource.match(/window\.INK_ATLAS_MODEL_BASE64="([A-Za-z0-9+/=]+)";/)?.[1];
 if (!encoded) fail('Could not locate embedded GLB payload');
