@@ -1,9 +1,11 @@
 (() => {
   'use strict';
 
+  const selectedBodyModel = window.INK_ATLAS_SELECTED_BODY_MODEL === 'female' ? 'female' : 'male';
   const V6 = {
-    modelURL: 'assets/male-base-mesh-base_male.glb',
-    modelName: 'MakeHuman CC0 male base mesh',
+    modelURL: selectedBodyModel === 'female' ? 'assets/female-base-mesh-base_female.glb' : 'assets/male-base-mesh-base_male.glb',
+    modelFile: selectedBodyModel === 'female' ? 'female-base-mesh-base_female.glb' : 'male-base-mesh-base_male.glb',
+    modelName: selectedBodyModel === 'female' ? 'MakeHuman CC0 feminine base mesh' : 'MakeHuman CC0 masculine base mesh',
     palette: {
       traditional: ['#171716', '#eee2cf', '#c74432', '#176378', '#c89459'],
       nocturne: ['#121318', '#ded8cf', '#5c3f83', '#187c83', '#b98545'],
@@ -12,15 +14,22 @@
       blackwork: ['#121212', '#efe9dc', '#343434', '#77736d', '#b9b0a1']
     }
   };
-  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, heightCm: 178, chestCm: 96, waistCm: 82, hipsCm: 96, bicepsCm: 32, thighsCm: 56, shoulderCm: 44 };
+  const bodyDefaults = selectedBodyModel === 'female'
+    ? { heightCm: 165, chestCm: 91, waistCm: 74, hipsCm: 99, bicepsCm: 28, thighsCm: 58, shoulderCm: 39 }
+    : { heightCm: 178, chestCm: 96, waistCm: 82, hipsCm: 96, bicepsCm: 32, thighsCm: 56, shoulderCm: 44 };
+  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, modelType: selectedBodyModel, outfit: selectedBodyModel === 'female' ? 'sport' : 'none', outfitColor: '#2e4551', outfitAccent: '#d0a36f', clothingXRay: false, renderQuality: 'auto', ...bodyDefaults };
   let needsSurfaceCoordinateMigration = true;
   try {
     const storedLayout = JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1') || '{}'), prior = storedLayout.bodySettings;
     needsSurfaceCoordinateMigration = Number(storedLayout.version || 0) < 6.3;
     if (prior && ['balanced', 'athletic', 'broad', 'lean'].includes(prior.profile)) bodySettings.profile = prior.profile;
     if (prior && Number.isFinite(prior.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, prior.heightCm));
-    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
+    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'outfit', 'outfitColor', 'outfitAccent', 'clothingXRay', 'renderQuality']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
   } catch (_) {}
+  bodySettings.modelType = selectedBodyModel;
+  if (selectedBodyModel === 'female' && bodySettings.outfit === 'none') bodySettings.outfit = 'sport';
+  const autoDpr = matchMedia('(max-width: 780px)').matches || (navigator.deviceMemory && navigator.deviceMemory <= 4) ? 1.15 : 1.75;
+  window.INK_ATLAS_DPR_CAP = bodySettings.renderQuality === 'high' ? 2 : bodySettings.renderQuality === 'battery' ? 1 : autoDpr;
   window.INK_ATLAS_BODY_PROFILE = bodySettings.profile;
   window.INK_ATLAS_MEASUREMENTS = bodySettings;
 
@@ -328,6 +337,44 @@
     }
   };
 
+  function clothingCoverage(partId, v = .5) {
+    const outfit = bodySettings.outfit || 'none';
+    if (outfit === 'none') return false;
+    if (partId === 'pelvis') return true;
+    if (partId === 'torso') return outfit === 'bodysuit' || outfit === 'tee_leggings' || outfit === 'tee_shorts' || v >= .30;
+    if (partId.endsWith('_upper_arm')) return outfit === 'sport' ? v >= .85 : (outfit === 'tee_leggings' || outfit === 'tee_shorts') && v >= .55;
+    if (partId.endsWith('_thigh')) {
+      if (outfit === 'tee_leggings') return true;
+      if (outfit === 'tee_shorts') return v >= .58;
+      if (outfit === 'sport') return v >= .72;
+    }
+    return outfit === 'tee_leggings' && partId.endsWith('_calf');
+  }
+
+  function paintClothingLayer(p, ctx, W, H) {
+    const outfit = bodySettings.outfit || 'none';
+    if (outfit === 'none') return;
+    let end = 0;
+    if (p.id === 'pelvis') end = 1;
+    else if (p.id === 'torso') end = outfit === 'bodysuit' || outfit === 'tee_leggings' || outfit === 'tee_shorts' ? 1 : .70;
+    else if (p.id.endsWith('_upper_arm')) end = outfit === 'sport' ? .15 : (outfit === 'tee_leggings' || outfit === 'tee_shorts') ? .45 : 0;
+    else if (p.id.endsWith('_thigh')) end = outfit === 'tee_leggings' ? 1 : outfit === 'tee_shorts' ? .42 : outfit === 'sport' ? .28 : 0;
+    else if (p.id.endsWith('_calf') && outfit === 'tee_leggings') end = 1;
+    if (!end) return;
+    const primary = bodySettings.outfitColor || '#2e4551', accent = bodySettings.outfitAccent || '#d0a36f';
+    ctx.save();
+    const fabric = ctx.createLinearGradient(0, 0, W, H * end);
+    fabric.addColorStop(0, primary); fabric.addColorStop(.52, primary); fabric.addColorStop(1, '#1d2730');
+    ctx.fillStyle = fabric; ctx.fillRect(0, 0, W, H * end);
+    ctx.globalAlpha = .18; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1, W / 360);
+    for (let x = -H; x < W + H; x += Math.max(14, W / 34)) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + H * end, H * end); ctx.stroke(); }
+    ctx.globalAlpha = .82; ctx.strokeStyle = accent; ctx.lineWidth = Math.max(2, W / 120); ctx.setLineDash([W / 75, W / 110]);
+    ctx.beginPath(); ctx.moveTo(0, H * end - ctx.lineWidth); ctx.lineTo(W, H * end - ctx.lineWidth); ctx.stroke();
+    if (p.id === 'torso' && end === 1) { ctx.beginPath(); ctx.moveTo(W * .35, 0); ctx.quadraticCurveTo(W * .5, H * .15, W * .65, 0); ctx.stroke(); }
+    ctx.restore();
+  }
+  window.INK_ATLAS_PAINT_CLOTHING = paintClothingLayer;
+
   refreshTexture = function refreshTextureV6(p) {
     const ctx = p.ctx, W = p.canvas.width, H = p.canvas.height;
     ctx.clearRect(0, 0, W, H);
@@ -336,6 +383,7 @@
       navel: '#8e6c5b', shadow: '#9d796a', eyewhite: '#d8c5af', iris: '#514c48', brow: '#8e7064', lip: '#ba9485'
     }[p.color] || '#dfc8b3');
     ctx.fillRect(0, 0, W, H);
+    paintClothingLayer(p, ctx, W, H);
     if (p.color === 'brief') {
       ctx.fillStyle = '#343c46';
       ctx.fillRect(0, 0, W, Math.max(3, H * .025));
@@ -589,13 +637,13 @@
   }
 
   function uploadDecalTexture(mesh, tattoo, asset, image) {
-    const signature = `${tattoo.colorMode}|${tattoo.inkColor}|${tattoo.saturation}|${tattoo.hue}|${tattoo.healing || 'healed'}|${tattoo.mask || 'none'}|${asset.src.length}|${image.naturalWidth}x${image.naturalHeight}`;
+    const signature = `${tattoo.colorMode}|${tattoo.inkColor}|${tattoo.saturation}|${tattoo.hue}|${tattoo.healing || 'healed'}|${tattoo.inkDensity ?? 88}|${tattoo.mask || 'none'}|${asset.src.length}|${image.naturalWidth}x${image.naturalHeight}`;
     if (mesh.textureSignature === signature) return;
     if (!mesh.texture) mesh.texture = gl.createTexture();
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 512; const ctx = canvas.getContext('2d');
     const source = tattoo.colorMode === 'mono' ? tintedImage(image, tattoo.inkColor || '#171717') : image;
     const healing = tattoo.healing || 'healed', healingFilter = healing === 'fresh' ? 'saturate(112%) contrast(108%)' : healing === 'aged' ? 'saturate(58%) contrast(88%) brightness(108%) blur(.35px)' : healing === 'faded' ? 'saturate(42%) contrast(76%) brightness(114%) blur(.55px)' : 'saturate(94%) contrast(96%)';
-    ctx.filter = `saturate(${tattoo.saturation ?? 100}%) hue-rotate(${tattoo.hue ?? 0}deg) ${healingFilter}`; ctx.globalAlpha = healing === 'fresh' ? 1 : healing === 'aged' ? .72 : healing === 'faded' ? .52 : .88; ctx.drawImage(source, 0, 0, 512, 512); ctx.globalAlpha = 1;
+    ctx.filter = `saturate(${tattoo.saturation ?? 100}%) hue-rotate(${tattoo.hue ?? 0}deg) ${healingFilter}`; const density=clamp((tattoo.inkDensity ?? 88)/100,.45,1.15);ctx.globalAlpha = Math.min(1,(healing === 'fresh' ? 1 : healing === 'aged' ? .72 : healing === 'faded' ? .52 : .88)*density); ctx.drawImage(source, 0, 0, 512, 512); ctx.globalAlpha = 1;
     if (tattoo.mask && tattoo.mask !== 'none') {
       ctx.globalCompositeOperation = 'destination-in'; ctx.filter = 'none';
       if (tattoo.mask === 'ellipse') { ctx.beginPath(); ctx.ellipse(256, 256, 230, 246, 0, 0, Math.PI * 2); ctx.fill(); }
@@ -661,9 +709,11 @@
     gl.useProgram(decalProgram); gl.uniformMatrix4fv(decalProgram.locations.vp, false, viewProjection); gl.enable(gl.DEPTH_TEST); gl.depthMask(false); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1, -1);
     for (const tattoo of tattoos) {
       if (tattoo.hidden) continue;
+      const covered = clothingCoverage(tattoo.part, tattoo.v);
+      if (covered && !bodySettings.clothingXRay) continue;
       const mesh = ensureDecalMesh(tattoo); if (!mesh || !mesh.indices.length) continue; updateDecalPose(mesh);
       const risk = mesh.analysis?.grade || 'good', riskColour = risk === 'high' ? [.92, .23, .25] : risk === 'moderate' ? [1, .64, .16] : [.28, .78, .48];
-      gl.uniform1f(decalProgram.locations.opacity, tattoo.opacity ?? .92); gl.uniform1f(decalProgram.locations.analysis, window.INK_ATLAS_ANALYSIS_ON ? 1 : 0); gl.uniform3fv(decalProgram.locations.analysisColor, riskColour); gl.bindBuffer(gl.ARRAY_BUFFER, mesh.pb); gl.vertexAttribPointer(decalProgram.locations.pos, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.pos);
+      gl.uniform1f(decalProgram.locations.opacity, (tattoo.opacity ?? .92) * (covered ? .24 : 1)); gl.uniform1f(decalProgram.locations.analysis, window.INK_ATLAS_ANALYSIS_ON ? 1 : 0); gl.uniform3fv(decalProgram.locations.analysisColor, riskColour); gl.bindBuffer(gl.ARRAY_BUFFER, mesh.pb); gl.vertexAttribPointer(decalProgram.locations.pos, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.pos);
       gl.bindBuffer(gl.ARRAY_BUFFER, mesh.nb); gl.vertexAttribPointer(decalProgram.locations.norm, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.norm); gl.bindBuffer(gl.ARRAY_BUFFER, mesh.ub); gl.vertexAttribPointer(decalProgram.locations.uv, 2, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.uv);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib); gl.bindTexture(gl.TEXTURE_2D, mesh.texture); gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
     }
@@ -801,16 +851,22 @@
       try {
         const imported = JSON.parse(await file.text());
         if (!imported.bodySettings) return;
+        const importedModel = imported.bodySettings.modelType === 'female' ? 'female' : imported.bodySettings.modelType === 'male' ? 'male' : null;
+        const switchModel = importedModel && importedModel !== bodySettings.modelType;
+        if (importedModel) { bodySettings.modelType = importedModel; localStorage.setItem('inkAtlas_body_model', importedModel); }
         if (['balanced', 'athletic', 'broad', 'lean'].includes(imported.bodySettings.profile)) bodySettings.profile = imported.bodySettings.profile;
         if (['balanced', 'soft', 'angular', 'androgynous'].includes(imported.bodySettings.frame)) bodySettings.frame = imported.bodySettings.frame;
         if (/^#[0-9a-f]{6}$/i.test(imported.bodySettings.skinTone || '')) bodySettings.skinTone = imported.bodySettings.skinTone;
         if (Number.isFinite(imported.bodySettings.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, imported.bodySettings.heightCm));
         for (const key of ['chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm']) if (Number.isFinite(imported.bodySettings[key])) bodySettings[key] = imported.bodySettings[key];
+        for (const key of ['outfit', 'outfitColor', 'outfitAccent', 'clothingXRay', 'renderQuality']) if (imported.bodySettings[key] !== undefined) bodySettings[key] = imported.bodySettings[key];
+        if (bodySettings.modelType === 'female' && bodySettings.outfit === 'none') bodySettings.outfit = 'sport';
         window.INK_ATLAS_BODY_PROFILE = bodySettings.profile;
         if ($('bodyProfile')) $('bodyProfile').value = bodySettings.profile;
         if ($('bodyHeight')) $('bodyHeight').value = bodySettings.heightCm;
         if ($('bodyHeightOut')) $('bodyHeightOut').textContent = `${bodySettings.heightCm} cm`;
         applyPose(); renderInspector(); saveLayout(false);
+        if (switchModel) setTimeout(() => location.reload(), 140);
       } catch (_) {}
     }, true);
   }
@@ -853,6 +909,9 @@
     const controls = document.createElement('div');
     controls.className = 'body-settings';
     controls.innerHTML = `
+      <label>Body model
+        <select id="bodyModelType"><option value="male">Masculine body</option><option value="female">Feminine body · clothed</option></select>
+      </label>
       <label>Body profile
         <select id="bodyProfile">
           <option value="balanced">Balanced</option><option value="athletic">Athletic definition</option><option value="broad">Broad build</option><option value="lean">Lean build</option>
@@ -863,6 +922,16 @@
       </label>
       <p class="calibration-copy">Rescales the planning mannequin from the feet upward and recalibrates tattoo dimensions in centimetres.</p>`;
     uploadBox.before(controls);
+    $('bodyModelType').value = bodySettings.modelType;
+    $('bodyModelType').onchange = event => {
+      const next = event.target.value === 'female' ? 'female' : 'male';
+      if (next === bodySettings.modelType) return;
+      const defaults = next === 'female' ? {heightCm:165,chestCm:91,waistCm:74,hipsCm:99,bicepsCm:28,thighsCm:58,shoulderCm:39,outfit:'sport'} : {heightCm:178,chestCm:96,waistCm:82,hipsCm:96,bicepsCm:32,thighsCm:56,shoulderCm:44,outfit:'none'};
+      Object.assign(bodySettings, defaults, { modelType: next });
+      localStorage.setItem('inkAtlas_body_model', next); saveLayout(false);
+      modelStatus.textContent = `Switching to the ${next === 'female' ? 'feminine clothed' : 'masculine'} body…`;
+      setTimeout(() => location.reload(), 120);
+    };
     $('bodyProfile').value = bodySettings.profile;
     $('bodyProfile').onchange = event => { bodySettings.profile = event.target.value; window.INK_ATLAS_BODY_PROFILE = bodySettings.profile; applyPose(); for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; saveLayout(false); toast(`${event.target.selectedOptions[0].text} body profile applied`); };
     $('bodyHeight').oninput = event => { const previous = bodySettings.heightCm; bodySettings.heightCm = Number(event.target.value); if (camDist > 9) { const ratio = bodySettings.heightCm / previous; camDist = clamp(camDist * ratio, 9.5, 18.5); camTarget[1] += 3.41 * (bodySettings.heightCm - previous) / 178; } $('bodyHeightOut').textContent = `${bodySettings.heightCm} cm`; applyPose(); for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; parts.forEach(part => part.dirty = true); renderInspector(); updateHeightRuler(); requestDraw(); };
@@ -877,7 +946,7 @@
     const note = document.querySelector('.model-note');
     if (note) {
       note.classList.add('collapsed');
-      note.innerHTML = '<button type="button" class="model-note-toggle" aria-expanded="false"><span>Model details</span><b aria-hidden="true">＋</b></button><div class="model-note-body">CC0 MakeHuman-derived body · 163-bone rig · dual-quaternion joint deformation · seam-aware tattoo projection. Tattoos remain attached while the pose changes.</div>';
+      note.innerHTML = '<button type="button" class="model-note-toggle" aria-expanded="false"><span>Model details</span><b aria-hidden="true">＋</b></button><div class="model-note-body">CC0 MakeHuman-derived body · 163-bone rig · dual-quaternion skinning · pose-space shoulder correctives · seam-aware tattoo projection.</div>';
       const toggle = note.querySelector('.model-note-toggle'), body = note.querySelector('.model-note-body');
       toggle.onclick = () => { const open = note.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(open)); toggle.querySelector('b').textContent = open ? '−' : '＋'; body.hidden = !open; };
       body.hidden = true;
@@ -984,7 +1053,7 @@
         if (!response.ok) throw new Error(`Model request failed (${response.status})`);
         blob = await response.blob();
       }
-      const file = new File([blob], 'male-base-mesh-base_male.glb', { type: 'model/gltf-binary' });
+      const file = new File([blob], V6.modelFile, { type: 'model/gltf-binary' });
       await loadAnatomicalGLB(file);
       if (needsSurfaceCoordinateMigration) migrateLegacySurfaceCoordinates();
       if (restoredPose) setPose(restoredPose);
@@ -1069,6 +1138,17 @@
   }
   renderLibrary();
   updateUI();
-  window.InkAtlasV7Bridge = { bodySettings, measureTattooDistortion, decalMeshes, resetAnalysisBaselines: () => { for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; }, markAllDirty: () => { parts.forEach(part => part.dirty = true); requestDraw(); }, focusBodyRegion };
+  window.InkAtlasV7Bridge = {
+    bodySettings, measureTattooDistortion, decalMeshes, focusBodyRegion,
+    resetAnalysisBaselines: () => { for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; },
+    markAllDirty: () => { parts.forEach(part => part.dirty = true); requestDraw(); },
+    updateClothing: () => { parts.forEach(part => part.dirty = true); requestDraw(); },
+    updateRenderQuality: quality => {
+      bodySettings.renderQuality = quality;
+      const automatic = matchMedia('(max-width: 780px)').matches || (navigator.deviceMemory && navigator.deviceMemory <= 4) ? 1.15 : 1.75;
+      window.INK_ATLAS_DPR_CAP = quality === 'high' ? 2 : quality === 'battery' ? 1 : automatic;
+      requestDraw();
+    }
+  };
   loadBundledModel();
 })();

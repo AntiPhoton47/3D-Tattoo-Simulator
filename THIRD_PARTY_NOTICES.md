@@ -2,9 +2,10 @@
 
 ## Bundled human model
 
-The files `assets/male-base-mesh-base_male.glb` and `model-data.js` contain a rigged adult human base mesh published by Innerscene as **Male base mesh — 3D Person, Rigged A-pose**.
+The files `assets/male-base-mesh-base_male.glb`, `assets/female-base-mesh-base_female.glb`, `model-data.js` and `female-model-data.js` contain rigged adult human base meshes published by Innerscene as **Male base mesh — 3D Person, Rigged A-pose** and **Female base mesh — 3D Person, Rigged A-pose**.
 
 - Source: [Innerscene 3D Parts Library](https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89)
+- Female source: [Innerscene 3D Parts Library](https://www.innerscene.com/tools/library/3d-parts/female-base-mesh-3d-person-rigged-a-pose-dba97ed5)
 - Upstream asset family: [MakeHuman core assets](https://static.makehumancommunity.org/about/license.html)
 - License: [Creative Commons Zero v1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
 
@@ -17,3 +18,7 @@ The generic botanical, animal, nature, traditional, geometric and minimal tattoo
 ## User-supplied content
 
 Artwork and replacement GLB models loaded by a user are not part of this repository. Users are responsible for ensuring they have permission to use and reproduce their own imported content.
+
+## Development tooling
+
+The optional visual-regression suite uses [Playwright](https://playwright.dev/), distributed under the Apache License 2.0. Playwright is a development dependency and is not shipped as part of the static application runtime.

@@ -44,6 +44,11 @@
     restoring = true;
     tattoos = clone(state.tattoos || []);
     Object.assign(settings, state.body || {});
+    if (settings.modelType === 'female' && settings.outfit === 'none') settings.outfit = 'sport';
+    if (settings.modelType && settings.modelType !== window.INK_ATLAS_SELECTED_BODY_MODEL) {
+      localStorage.setItem('inkAtlas_body_model', settings.modelType);
+      setTimeout(() => location.reload(), 140);
+    }
     window.INK_ATLAS_BODY_PROFILE = settings.profile || 'balanced';
     selectedId = tattoos.some(t => t.id === state.selectedId) ? state.selectedId : (tattoos[0]?.id || null);
     setPose(state.pose || {});
@@ -89,6 +94,8 @@
         <button class="v7-tool" id="v7Analyze" aria-label="Analyze distortion"><span>◎</span><b>Analyze</b></button>
         <button class="v7-tool" id="v7Guides" aria-label="Toggle placement guides"><span>＋</span><b>Guides</b></button>
         <button class="v7-tool" id="v7Stencil" aria-label="Export stencil"><span>▱</span><b>Stencil</b></button>
+        <button class="v7-tool" id="v7Packet" aria-label="Artist handoff packet"><span>▤</span><b>Artist packet</b></button>
+        <button class="v7-tool" id="v7Calibrate" aria-label="Private body calibration"><span>⌁</span><b>Calibrate</b></button>
         <button class="v7-tool" id="v7Install" aria-label="Install app"><span>⇩</span><b>Install</b></button>
       </div><div class="v7-online" id="v7Online">● Local</div>`;
     document.querySelector('.top').after(bar);
@@ -98,6 +105,8 @@
     $('v7Analyze').onclick = () => runPoseRange();
     $('v7Guides').onclick = toggleGuides;
     $('v7Stencil').onclick = exportStencil;
+    $('v7Packet').onclick = exportArtistPacket;
+    $('v7Calibrate').onclick = openCalibration;
     $('v7Install').onclick = installApp;
     updateHistoryButtons(); updateGuideButton(); updateOnline();
   }
@@ -153,13 +162,22 @@
   function installBodyLab() {
     const left=document.querySelector('.sidebar.left'), placement=Array.from(left.querySelectorAll('.eyebrow')).find(node=>node.textContent.includes('Placement note'));
     const section=document.createElement('details'); section.className='v7-body-lab'; section.open=true;
-    section.innerHTML=`<summary>Measurements & appearance <span>8 controls</span></summary><div class="v7-body-content">
+    section.innerHTML=`<summary>Body, clothing & appearance <span>local controls</span></summary><div class="v7-body-content">
       <label>Frame<select id="v7Frame"><option value="balanced">Balanced</option><option value="soft">Soft</option><option value="angular">Angular</option><option value="androgynous">Androgynous</option></select></label>
       ${[['Chest','chestCm',78,125],['Waist','waistCm',62,120],['Hips','hipsCm',78,125],['Biceps','bicepsCm',22,48],['Thighs','thighsCm',40,76],['Shoulders','shoulderCm',34,57]].map(([label,key,min,max])=>`<label>${label}<span><input data-measure="${key}" type="range" min="${min}" max="${max}" value="${settings[key]}"><output>${settings[key]} cm</output></span></label>`).join('')}
       <label>Skin tone<span class="v7-skin-slider"><input id="v7SkinTone" type="range" min="0" max="100" step="1" value="${settings.skinTonePosition}" aria-label="Continuous skin tone"><output id="v7SkinToneOut">Tone ${Math.round(settings.skinTonePosition)}</output></span></label>
-      <p>Measurements use smooth, bounded anatomical transitions to preserve the mesh surface. Height changes the visible stature and calibrates exported physical dimensions.</p></div>`;
+      <div class="v7-clothing"><label>Clothing<select id="v7Outfit"><option value="none">No garment layer</option><option value="sport">Sports top & shorts</option><option value="tee_shorts">T-shirt & shorts</option><option value="tee_leggings">T-shirt & leggings</option><option value="bodysuit">Fitted bodysuit</option></select></label><div class="v7-colour-pair"><label>Fabric<input id="v7OutfitColor" type="color" value="${esc(settings.outfitColor||'#2e4551')}"></label><label>Seam<input id="v7OutfitAccent" type="color" value="${esc(settings.outfitAccent||'#d0a36f')}"></label></div><label class="v7-check"><input id="v7ClothingXRay" type="checkbox" ${settings.clothingXRay?'checked':''}> Show hidden tattoos through clothing</label></div>
+      <label>Rendering<select id="v7RenderQuality"><option value="auto">Adaptive · recommended</option><option value="high">High detail</option><option value="battery">Battery saver</option></select></label>
+      <p>Measurements use smooth, bounded anatomical transitions. Clothing is a local garment layer that follows the rig; hidden tattoos remain in the project and can be shown in planning mode.</p></div>`;
     left.insertBefore(section, placement?.previousElementSibling || null); $('v7Frame').value=settings.frame||'balanced';
     $('v7Frame').onchange=event=>applyBodyChange('frame',event.target.value);
+    const outfit=$('v7Outfit'); outfit.value=settings.outfit||'none';
+    if(settings.modelType==='female')outfit.querySelector('[value="none"]')?.remove();
+    outfit.onchange=event=>applyBodyChange('outfit',event.target.value);
+    $('v7OutfitColor').oninput=event=>applyBodyChange('outfitColor',event.target.value,false); $('v7OutfitColor').onchange=()=>saveLayout(false);
+    $('v7OutfitAccent').oninput=event=>applyBodyChange('outfitAccent',event.target.value,false); $('v7OutfitAccent').onchange=()=>saveLayout(false);
+    $('v7ClothingXRay').onchange=event=>applyBodyChange('clothingXRay',event.target.checked);
+    $('v7RenderQuality').value=settings.renderQuality||'auto'; $('v7RenderQuality').onchange=event=>applyBodyChange('renderQuality',event.target.value);
     section.querySelectorAll('[data-measure]').forEach(input=>input.oninput=()=>{ input.nextElementSibling.value=`${input.value} cm`; applyBodyChange(input.dataset.measure,Number(input.value),false); });
     section.querySelectorAll('[data-measure]').forEach(input=>input.onchange=()=>saveLayout(false));
     const tone=$('v7SkinTone'),toneOut=$('v7SkinToneOut');
@@ -171,6 +189,10 @@
     settings[key]=value;
     if(key==='skinTone'){
       parts.forEach(part=>part.dirty=true);bridge.markAllDirty();requestDraw();
+    }else if(['outfit','outfitColor','outfitAccent','clothingXRay'].includes(key)){
+      bridge.updateClothing?.();
+    }else if(key==='renderQuality'){
+      bridge.updateRenderQuality?.(value);
     }else if(!bodyMorphFrame){
       bodyMorphFrame=requestAnimationFrame(()=>{bodyMorphFrame=0;applyPose();bridge.resetAnalysisBaselines?.();bridge.markAllDirty();requestDraw();});
     }
@@ -231,7 +253,7 @@
   function enhanceInspector() {
     const host=$('inspector'), tattoo=tattoos.find(t=>t.id===selectedId); if(!tattoo||host.querySelector('.v7-inspector'))return;
     const block=document.createElement('div');block.className='v7-inspector';block.innerHTML=`<details open><summary>Exact placement & guides</summary><div class="v7-exact-grid"><label>Horizontal %<input data-exact="u" type="number" min="0" max="100" step="0.5" value="${(tattoo.u*100).toFixed(1)}"></label><label>Vertical %<input data-exact="v" type="number" min="0" max="100" step="0.5" value="${(tattoo.v*100).toFixed(1)}"></label><label>Rotation °<input data-exact="rotation" type="number" min="-180" max="180" step="1" value="${Math.round(tattoo.rotation||0)}"></label><label>Grid<select id="v7Grid"><option value="1">1%</option><option value="2.5">2.5%</option><option value="5">5%</option></select></label></div><label class="v7-check"><input id="v7Snap" type="checkbox" ${ui.snap?'checked':''}> Snap placement and rotation</label><div class="btnrow"><button class="btn tiny" id="v7Center">Centre</button><button class="btn tiny" id="v7Mirror">Mirror duplicate</button><button class="btn tiny" id="v7Duplicate">Duplicate</button></div></details>
-      <details><summary>Layers, group & mask</summary><div class="v7-exact-grid"><label>Group<input id="v7Group" value="${esc(tattoo.group||'')}" placeholder="e.g. sleeve"></label><label>Edge mask<select id="v7Mask"><option value="none">None</option><option value="ellipse">Soft ellipse</option><option value="fade">Vertical fade</option></select></label><label>Ink state<select id="v7Healing"><option value="healed">Healed</option><option value="fresh">Fresh</option><option value="aged">Aged</option><option value="faded">Faded</option></select></label></div><div class="btnrow"><button class="btn tiny" id="v7LayerUp">Layer up</button><button class="btn tiny" id="v7LayerDown">Layer down</button></div></details>`;
+      <details><summary>Layers, group & ink material</summary><div class="v7-exact-grid"><label>Group<input id="v7Group" value="${esc(tattoo.group||'')}" placeholder="e.g. sleeve"></label><label>Edge mask<select id="v7Mask"><option value="none">None</option><option value="ellipse">Soft ellipse</option><option value="fade">Vertical fade</option></select></label><label>Skin-settled state<select id="v7Healing"><option value="healed">Healed</option><option value="fresh">Fresh / glossy</option><option value="aged">Aged</option><option value="faded">Faded</option></select></label><label>Ink density<input id="v7InkDensity" type="range" min="45" max="115" step="1" value="${tattoo.inkDensity??88}"><output id="v7InkDensityOut">${tattoo.inkDensity??88}%</output></label></div><div class="btnrow"><button class="btn tiny" id="v7LayerUp">Layer up</button><button class="btn tiny" id="v7LayerDown">Layer down</button></div></details>`;
     host.append(block);$('v7Grid').value=String(ui.grid);$('v7Mask').value=tattoo.mask||'none';$('v7Healing').value=tattoo.healing||'healed';
     block.querySelectorAll('[data-exact]').forEach(input=>input.onchange=()=>{let value=Number(input.value);if(input.dataset.exact==='u'||input.dataset.exact==='v')value=clamp(value/100,0,1);else value=clamp(value,-180,180);tattoo[input.dataset.exact]=value;markDirty(tattoo.part);saveLayout(false);updateUI();});
     $('v7Grid').onchange=e=>{ui.grid=Number(e.target.value);saveUI();};$('v7Snap').onchange=e=>{ui.snap=e.target.checked;saveUI();};
@@ -239,6 +261,7 @@
     $('v7Group').onchange=e=>{tattoo.group=e.target.value.trim();saveLayout(false);renderLayers();};
     $('v7Mask').onchange=e=>{tattoo.mask=e.target.value;bridge.decalMeshes.get(tattoo.id) && (bridge.decalMeshes.get(tattoo.id).textureSignature='');markDirty(tattoo.part);saveLayout(false);requestDraw();};
     $('v7Healing').onchange=e=>{tattoo.healing=e.target.value;bridge.decalMeshes.get(tattoo.id) && (bridge.decalMeshes.get(tattoo.id).textureSignature='');markDirty(tattoo.part);saveLayout(false);requestDraw();};
+    $('v7InkDensity').oninput=e=>{tattoo.inkDensity=Number(e.target.value);$('v7InkDensityOut').value=`${tattoo.inkDensity}%`;bridge.decalMeshes.get(tattoo.id) && (bridge.decalMeshes.get(tattoo.id).textureSignature='');markDirty(tattoo.part);requestDraw();};$('v7InkDensity').onchange=()=>saveLayout(false);
     $('v7LayerUp').onclick=()=>moveLayer(tattoo.id,1);$('v7LayerDown').onclick=()=>moveLayer(tattoo.id,-1);
   }
   function mirroredPart(part){if(part.startsWith('left_'))return part.replace('left_','right_');if(part.startsWith('right_'))return part.replace('right_','left_');return part;}
@@ -247,6 +270,24 @@
 
   function installLayers(){const section=document.createElement('section');section.id='v7Layers';section.className='v7-section';document.querySelector('.sidebar.right').append(section);renderLayers();}
   function renderLayers(){const host=$('v7Layers');if(!host)return;const groups=[...new Set(tattoos.map(t=>t.group).filter(Boolean))];host.innerHTML=`<div class="panel-head"><div class="section-label">Layers & compositions</div><span class="pill">${tattoos.length}</span></div><div class="v7-layer-list">${tattoos.slice().reverse().map((tattoo,i)=>`<div class="v7-layer ${tattoo.id===selectedId?'active':''}"><button data-layer-select="${esc(tattoo.id)}"><i style="background:${esc(tattoo.color||'#25272b')}"></i><span>${esc(assetMap()[tattoo.asset]?.name||tattoo.asset)}<small>${esc(tattoo.group||nameOf(tattoo.part))}</small></span></button><button data-layer-eye="${esc(tattoo.id)}" title="Show or hide">${tattoo.hidden?'○':'●'}</button></div>`).join('')||'<div class="detailtxt">Placed tattoos will appear here as reorderable layers.</div>'}</div>${groups.length?`<div class="v7-group-nudge"><select id="v7NudgeGroup">${groups.map(g=>`<option>${esc(g)}</option>`).join('')}</select><span>Nudge group</span><button data-nudge="-1,0">←</button><button data-nudge="1,0">→</button><button data-nudge="0,-1">↑</button><button data-nudge="0,1">↓</button></div>`:''}`;host.querySelectorAll('[data-layer-select]').forEach(b=>b.onclick=()=>selectTattoo(b.dataset.layerSelect));host.querySelectorAll('[data-layer-eye]').forEach(b=>b.onclick=()=>{const t=tattoos.find(x=>x.id===b.dataset.layerEye);t.hidden=!t.hidden;saveLayout(false);renderLayers();requestDraw();});host.querySelectorAll('[data-nudge]').forEach(b=>b.onclick=()=>{const [x,y]=b.dataset.nudge.split(',').map(Number),group=$('v7NudgeGroup').value,step=ui.grid/100;tattoos.filter(t=>t.group===group).forEach(t=>{t.u=clamp(t.u+x*step,0,1);t.v=clamp(t.v+y*step,0,1);markDirty(t.part);});saveLayout(false);updateUI();});}
+
+  function exportArtistPacket(){
+    drawScene();
+    let preview='';try{preview=canvas.toDataURL('image/jpeg',.82);}catch(_){}
+    const unit=settings.heightCm/6.88, rows=tattoos.filter(t=>!t.protected).map((tattoo,index)=>{const part=partById[tattoo.part],asset=assetMap()[tattoo.asset],width=(tattoo.size*(part?.circumference||1)*unit).toFixed(1),height=(Number(width)/(asset?.ratio||1)).toFixed(1);return `<tr><td>${index+1}</td><td>${esc(asset?.name||tattoo.asset)}</td><td>${esc(nameOf(tattoo.part))}</td><td>${width} × ${height} cm</td><td>${esc(tattoo.healing||'healed')}</td><td>${esc(tattoo.group||'—')}</td></tr>`}).join('');
+    const html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(ui.projectName)} · artist packet</title><style>@page{size:A4;margin:13mm}*{box-sizing:border-box}body{font:12px/1.5 Arial;color:#171717;margin:0}header{display:flex;justify-content:space-between;border-bottom:2px solid #222;padding-bottom:9px;margin-bottom:14px}h1{font:26px Georgia;margin:0}.meta{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:12px 0}.meta div{border:1px solid #bbb;padding:8px}.meta b{display:block;font-size:9px;text-transform:uppercase;color:#666}.preview{width:100%;max-height:115mm;object-fit:contain;background:#182028;border-radius:4px}table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #aaa;padding:6px;text-align:left}th{background:#eee;font-size:10px}.note{font-size:10px;color:#555;margin-top:12px}button{position:fixed;right:12px;top:12px}@media print{button{display:none}}</style></head><body><header><div><b>INK ATLAS · ARTIST HANDOFF</b><h1>${esc(ui.projectName)}</h1></div><div>${new Date().toLocaleDateString()}</div></header><div class="meta"><div><b>Body</b>${settings.modelType==='female'?'Feminine':'Masculine'} base</div><div><b>Height calibration</b>${settings.heightCm} cm</div><div><b>Key measures</b>${settings.chestCm} / ${settings.waistCm} / ${settings.hipsCm} cm</div><div><b>Pose</b>L/R shoulders ${pose.leftShoulder}° / ${pose.rightShoulder}°</div></div>${preview?`<img class="preview" src="${preview}" alt="Current 3D placement view">`:''}<table><thead><tr><th>#</th><th>Design</th><th>Region</th><th>Target size</th><th>Preview state</th><th>Group</th></tr></thead><tbody>${rows||'<tr><td colspan="6">No tattoos placed.</td></tr>'}</tbody></table><p class="note">Planning reference only. Confirm orientation, stencil scale, anatomy, skin condition and joint creases with the client in person. Dimensions are calibrated estimates from the selected body height.</p><button onclick="print()">Print / Save PDF</button></body></html>`;
+    const win=window.open('','_blank');if(win){win.document.write(html);win.document.close();setTimeout(()=>win.print(),350);}else{const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));link.download='ink-atlas-artist-packet.html';link.click();setTimeout(()=>URL.revokeObjectURL(link.href),1000);toast('Artist packet downloaded');}
+  }
+
+  function openCalibration(){
+    let modal=$('v7CalibrationModal');if(!modal){modal=document.createElement('div');modal.id='v7CalibrationModal';modal.className='v7-modal';document.body.append(modal);}
+    const fields=[['Height','heightCm',140,210],['Shoulders','shoulderCm',34,57],['Chest','chestCm',70,135],['Waist','waistCm',55,130],['Hips','hipsCm',70,140],['Biceps','bicepsCm',20,55],['Thighs','thighsCm',38,82]];
+    modal.innerHTML=`<div class="v7-dialog v7-calibration-dialog"><div class="v7-dialog-head"><div><span class="eyebrow">Private calibration</span><h2>Match the planning mannequin</h2></div><button class="v7-close" aria-label="Close">×</button></div><div class="v7-calibration-grid"><div><p>Enter tape measurements directly. Values remain in this browser unless you export a project.</p><div class="v7-calibration-fields">${fields.map(([label,key,min,max])=>`<label>${label}<span><input data-calibrate="${key}" type="number" min="${min}" max="${max}" step="1" value="${Number(settings[key])}"><b>cm</b></span></label>`).join('')}</div></div><div class="v7-private-photo"><label for="v7CalibrationPhoto">Optional local reference photo</label><input id="v7CalibrationPhoto" type="file" accept="image/png,image/jpeg,image/webp"><div id="v7CalibrationPreview"><span>Front or side silhouette<br>No file selected</span></div><p>The image is previewed in memory only. It is never uploaded, saved in the project, or included in exports.</p></div></div><div class="v7-dialog-actions"><button class="btn gold" id="v7ApplyCalibration">Apply calibration</button><button class="btn" id="v7ResetCalibration">Use model defaults</button></div></div>`;
+    modal.classList.add('open');modal.querySelector('.v7-close').onclick=()=>modal.classList.remove('open');modal.onclick=event=>{if(event.target===modal)modal.classList.remove('open');};
+    $('v7CalibrationPhoto').onchange=event=>{const file=event.target.files?.[0];if(!file)return;const url=URL.createObjectURL(file),preview=$('v7CalibrationPreview');preview.innerHTML=`<img src="${url}" alt="Local calibration reference">`;preview.querySelector('img').onload=()=>URL.revokeObjectURL(url);};
+    $('v7ApplyCalibration').onclick=()=>{modal.querySelectorAll('[data-calibrate]').forEach(input=>settings[input.dataset.calibrate]=clamp(Number(input.value)||Number(settings[input.dataset.calibrate]),Number(input.min),Number(input.max)));if($('bodyHeight')){$('bodyHeight').value=settings.heightCm;$('bodyHeightOut').textContent=`${settings.heightCm} cm`;}document.querySelectorAll('[data-measure]').forEach(input=>{input.value=settings[input.dataset.measure];input.nextElementSibling.value=`${input.value} cm`;});applyPose();bridge.resetAnalysisBaselines?.();bridge.markAllDirty();saveLayout(false);modal.classList.remove('open');toast('Private body calibration applied locally');};
+    $('v7ResetCalibration').onclick=()=>{const defaults=settings.modelType==='female'?{heightCm:165,shoulderCm:39,chestCm:91,waistCm:74,hipsCm:99,bicepsCm:28,thighsCm:58}:{heightCm:178,shoulderCm:44,chestCm:96,waistCm:82,hipsCm:96,bicepsCm:32,thighsCm:56};modal.querySelectorAll('[data-calibrate]').forEach(input=>input.value=defaults[input.dataset.calibrate]);};
+  }
 
   function exportStencil(){const tattoo=tattoos.find(t=>t.id===selectedId),asset=tattoo&&assetMap()[tattoo.asset];if(!tattoo||!asset){toast('Select a tattoo to export its stencil');return;}const width=Number(tattoo.width||tattoo.w||8).toFixed(1),height=Number(tattoo.height||tattoo.h||8).toFixed(1),html=`<!doctype html><html><head><meta charset="utf-8"><title>${esc(asset.name)} stencil</title><style>@page{size:A4;margin:14mm}*{box-sizing:border-box}body{font:13px Arial;color:#111;margin:0}header{display:flex;justify-content:space-between;border-bottom:1px solid #999;padding-bottom:8px}.art{display:grid;place-items:center;min-height:220mm}.art img{width:${width}cm;height:${height}cm;object-fit:contain;filter:grayscale(1) contrast(1.35)}.scale{width:10cm;border-top:2px solid #000;display:flex;justify-content:space-between;margin-top:12px}.note{font-size:11px;color:#555}button{position:fixed;right:12px;top:12px}@media print{button{display:none}}</style></head><body><header><b>INK ATLAS · PLACEMENT STENCIL</b><span>${esc(ui.projectName)} · ${new Date().toLocaleDateString()}</span></header><div class="art"><div><img src="${asset.src}" alt=""><p>Target size: ${width} × ${height} cm · ${esc(nameOf(tattoo.part))}</p><div class="scale"><span>0</span><span>10 cm</span></div></div></div><p class="note">Print at 100% / Actual size. The 10 cm bar must measure exactly 10 cm. Curved-surface compensation is approximate; confirm placement and scale on the body with the tattoo artist.</p><button onclick="print()">Print / Save PDF</button></body></html>`;const win=window.open('','_blank');if(win){win.document.write(html);win.document.close();setTimeout(()=>win.print(),400);}else{const link=document.createElement('a');link.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));link.download='ink-atlas-stencil.html';link.click();URL.revokeObjectURL(link.href);toast('Stencil downloaded — open it to print');}}
 

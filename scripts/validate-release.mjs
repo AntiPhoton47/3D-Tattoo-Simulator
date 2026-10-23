@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { extname } from 'node:path';
 
 const required = [
-  'index.html', 'v6.js', 'v6.css', 'v7.js', 'v7.css', 'model-data.js',
-  'assets/male-base-mesh-base_male.glb', 'manifest.json', 'sw.js', 'icon.svg',
+  'index.html', 'v6.js', 'v6.css', 'v7.js', 'v7.css', 'model-data.js', 'female-model-data.js',
+  'assets/male-base-mesh-base_male.glb', 'assets/female-base-mesh-base_female.glb', 'manifest.json', 'sw.js', 'icon.svg',
   'README.md', 'LICENSE', 'MODEL_LICENSE.md', 'THIRD_PARTY_NOTICES.md',
   'PRIVACY.md', 'SECURITY.md', 'CITATION.cff'
 ];
@@ -14,7 +14,7 @@ for (const file of required) {
   if (!statSync(file, { throwIfNoEntry: false })?.isFile()) fail(`Missing required file: ${file}`);
 }
 
-for (const file of ['v6.js', 'v7.js', 'sw.js']) {
+for (const file of ['v6.js', 'v7.js', 'sw.js', 'playwright.config.js', 'tests/visual.spec.js']) {
   try { new Function(readFileSync(file, 'utf8')); }
   catch (error) { fail(`${file} does not parse: ${error.message}`); }
 }
@@ -41,16 +41,20 @@ for (const legacyName of ['Anubis', 'Cerberus', 'Eye of Horus', 'Wigner', 'Hadam
   if (starterLibrary.includes(legacyName)) fail(`Legacy starter artwork remains in the library: ${legacyName}`);
 }
 
-const modelSource = readFileSync('model-data.js', 'utf8');
-const encoded = modelSource.match(/window\.INK_ATLAS_MODEL_BASE64="([A-Za-z0-9+/=]+)";/)?.[1];
-if (!encoded) fail('Could not locate embedded GLB payload');
-const embedded = Buffer.from(encoded, 'base64');
-const glb = readFileSync('assets/male-base-mesh-base_male.glb');
-if (!embedded.equals(glb)) fail('model-data.js does not match the bundled GLB');
-if (glb.toString('utf8', 0, 4) !== 'glTF') fail('Bundled model is not a GLB file');
-if (glb.readUInt32LE(8) !== glb.length) fail('Bundled GLB length header is invalid');
+function validateModel(payloadFile, glbFile) {
+  const modelSource = readFileSync(payloadFile, 'utf8');
+  const encoded = modelSource.match(/window\.INK_ATLAS_MODEL_BASE64="([A-Za-z0-9+/=]+)";/)?.[1];
+  if (!encoded) fail(`Could not locate embedded GLB payload in ${payloadFile}`);
+  const embedded = Buffer.from(encoded, 'base64'), glb = readFileSync(glbFile);
+  if (!embedded.equals(glb)) fail(`${payloadFile} does not match ${glbFile}`);
+  if (glb.toString('utf8', 0, 4) !== 'glTF') fail(`${glbFile} is not a GLB file`);
+  if (glb.readUInt32LE(8) !== glb.length) fail(`${glbFile} length header is invalid`);
+  return glb;
+}
+const glb = validateModel('model-data.js', 'assets/male-base-mesh-base_male.glb');
+const femaleGlb = validateModel('female-model-data.js', 'assets/female-base-mesh-base_female.glb');
 
-const textFiles = required.filter(file => !['.glb'].includes(extname(file)) && file !== 'model-data.js');
+const textFiles = required.filter(file => !['.glb'].includes(extname(file)) && !['model-data.js','female-model-data.js'].includes(file));
 const releaseText = textFiles.map(file => readFileSync(file, 'utf8')).join('\n');
 const forbidden = [
   /\/Users\//i, /\bmunga\b/i, /\bPhilip\b/i, /LeMaitre/i,
@@ -62,9 +66,11 @@ for (const pattern of forbidden) if (pattern.test(releaseText)) fail(`Release te
 
 for (const url of [
   'https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89',
+  'https://www.innerscene.com/tools/library/3d-parts/female-base-mesh-3d-person-rigged-a-pose-dba97ed5',
   'https://static.makehumancommunity.org/about/license.html',
   'https://creativecommons.org/publicdomain/zero/1.0/'
 ]) if (!releaseText.includes(url)) fail(`Missing required attribution URL: ${url}`);
 
 const digest = createHash('sha256').update(glb).digest('hex');
-console.log(`Release validation passed: ${required.length} required files, ${inlineScripts.length} inline scripts, GLB sha256 ${digest}`);
+const femaleDigest = createHash('sha256').update(femaleGlb).digest('hex');
+console.log(`Release validation passed: ${required.length} required files, ${inlineScripts.length} inline scripts, male GLB ${digest}, female GLB ${femaleDigest}`);

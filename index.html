@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Ink Atlas 1.0 — 3D Tattoo Placement Simulator</title>
+<title>Ink Atlas 1.1 — 3D Tattoo Placement Simulator</title>
 <meta name="theme-color" content="#111418"/><meta name="description" content="A local-first 3D tattoo placement simulator with pose analysis, colour planning and printable stencils."/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a221e'/%3E%3Cpath d='M16 5l3.2 7.8L27 16l-7.8 3.2L16 27l-3.2-7.8L5 16l7.8-3.2z' fill='%23ebc9a4'/%3E%3C/svg%3E"/>
@@ -19,14 +19,14 @@
 <header class="top"><div class="brand"><div class="logo" aria-hidden="true">✦</div><div><div class="wordmark">INK<span>ATLAS</span></div><div class="subbrand">PUBLIC RELEASE · LOCAL-FIRST STUDIO</div></div></div><div class="intro">Map artwork, test movement and export a placement study on a calibrated 3D body.</div><div class="topbuttons"><button class="btn ghost" id="resetBtn" title="Return to the front view">Reset view</button><button class="btn" id="importBtn" title="Import an Ink Atlas JSON layout">Import</button><button class="btn" id="exportBtn" title="Export a portable JSON layout">Export</button><button class="btn gold" id="shotBtn" title="Save the current 3D view as a PNG">Capture</button></div></header>
 <div class="layout"><aside class="sidebar left"><div class="eyebrow">Designs</div><h2>Tattoo library</h2><p>Choose a motif or upload your own transparent artwork, then place it directly on the model.</p><div class="field"><input class="search" id="searchInput" placeholder="Search tattoos..." aria-label="Search tattoos" /></div><div class="filter" id="filters"></div><div class="library" id="library"></div><div class="uploadbox"><label for="imageUpload">＋ Add artwork (PNG, JPG, WebP)</label><input type="file" id="imageUpload" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple></div><div class="separator"></div>
 <div class="eyebrow">3D body model</div><h2 style="font-size:19px">Anatomical body model</h2>
-<p>The bundled CC0 MakeHuman-derived body loads automatically. Adjust its proportions and height calibration below, or load another rigged MakeHuman / MPFB GLB for this session.</p>
+<p>Choose a masculine or feminine CC0 MakeHuman-derived body, then adjust its proportions and height calibration. Feminine bodies always open with a coverage outfit.</p>
 <div class="uploadbox" style="margin:0 0 10px"><label for="bodyModelUpload">＋ Load rigged human GLB model</label><input id="bodyModelUpload" type="file" accept=".glb,model/gltf-binary" /></div>
 <div class="btnrow" style="margin:4px 0 12px"><button class="btn tiny" id="modelStatusBtn">Model info</button></div>
 <div class="detailtxt" id="modelStatus" aria-live="polite" style="margin-bottom:10px;overflow-wrap:anywhere">Preparing the bundled high-definition MakeHuman body…</div>
-<p style="margin:0 0 10px">Bundled source: <a href="https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89" target="_blank" rel="noopener noreferrer">CC0 MakeHuman-derived base mesh ↗</a>.</p>
+<p style="margin:0 0 10px">Bundled sources: <a href="https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89" target="_blank" rel="noopener noreferrer">masculine body ↗</a> · <a href="https://www.innerscene.com/tools/library/3d-parts/female-base-mesh-3d-person-rigged-a-pose-dba97ed5" target="_blank" rel="noopener noreferrer">feminine body ↗</a> (CC0).</p>
 <div class="detailtxt">Custom model files are not stored. Export the layout before changing bodies.</div>
 <div class="separator"></div><div class="eyebrow">Placement note</div><p style="margin-bottom:0">Use the intended artwork for scale checks, and confirm joint creases and final dimensions with your artist.</p></aside>
-<main class="canvas-wrap" id="canvasWrap"><canvas id="glCanvas" aria-label="Interactive 3D body tattoo planner"></canvas><div class="viewtools"><div><div class="viewheading">3D BODY MAP</div><div class="viewtitle" id="viewTitle">Front · free orbit</div></div><div class="viewopts"><button class="btn tiny" data-view="front">Front</button><button class="btn tiny" data-view="back">Back</button><button class="btn tiny" data-view="left">Left</button><button class="btn tiny" data-view="right">Right</button><button class="btn tiny" data-view="three">¾ view</button><button class="btn tiny" data-view="shoulders">Shoulders</button></div></div><div class="model-note">CC0 MakeHuman-derived body · 163-bone rig · seam-aware tattoo projection. Tattoos remain attached while the pose changes.</div><div class="hint" id="hint" aria-live="polite">Drag model to orbit · Select a motif to place it</div><div class="scene-foot">LOCAL-FIRST · REAL-TIME 3D</div></main>
+<main class="canvas-wrap" id="canvasWrap"><canvas id="glCanvas" aria-label="Interactive 3D body tattoo planner"></canvas><div class="viewtools"><div><div class="viewheading">3D BODY MAP</div><div class="viewtitle" id="viewTitle">Front · free orbit</div></div><div class="viewopts"><button class="btn tiny" data-view="front">Front</button><button class="btn tiny" data-view="back">Back</button><button class="btn tiny" data-view="left">Left</button><button class="btn tiny" data-view="right">Right</button><button class="btn tiny" data-view="three">¾ view</button><button class="btn tiny" data-view="shoulders">Shoulders</button></div></div><div class="model-note">CC0 MakeHuman-derived body · 163-bone rig · seam-aware tattoo projection. Tattoos remain attached while the pose changes.</div><div class="hint" id="hint" aria-live="polite">Drag model to orbit · Select a motif to place it</div><div class="scene-foot">LOCAL-FIRST · REAL-TIME 3D · 1.1</div></main>
 <aside class="sidebar right"><div class="eyebrow">Edit placement</div><div class="panel-head"><h2>Inspector</h2><span class="pill" id="tatCount">0 tattoos</span></div><div id="inspector"><div class="select-help">Select a tattoo on the body or in the list to resize, rotate, move or recolour it.</div></div><div class="separator"></div>
 <div class="panel-head"><div class="section-label" style="margin:0">Pose studio</div><button class="btn tiny" id="resetPoseBtn">Neutral pose</button></div>
 <div class="detailtxt">Raise each arm sideways to inspect its underside. Bend elbows forward and knees backward. Pose is only a viewing aid; final joint creases need verification in person.</div>
@@ -405,6 +405,7 @@ let tattoos=[];let stateRestored=false;const STORE='inkAtlas_tattoo_v1';
 function loadAssetImg(asset){if(!asset || !asset.src)return;let im=imgCache[asset.id];if(im)return;im=new Image();imgCache[asset.id]=im;im.onload=()=>{asset.ratio=(im.naturalWidth||1)/(im.naturalHeight||1);parts.forEach(p=>{p.dirty=true});requestDraw();};im.src=asset.src}
 ASSETS.forEach(loadAssetImg);
 function refreshTexture(p){const ctx=p.ctx,W=p.canvas.width,H=p.canvas.height;ctx.clearRect(0,0,W,H);ctx.fillStyle=({skin:'#e0cab6',cloth:'#82909c',areola:'#c29a88',nipple:'#ae8172',navel:'#8e6c5b',shadow:'#9d796a',eyewhite:'#d8c5af',iris:'#514c48',brow:'#8e7064',lip:'#ba9485'}[p.color]||'#e0cab6');ctx.fillRect(0,0,W,H);
+ if(window.INK_ATLAS_PAINT_CLOTHING)window.INK_ATLAS_PAINT_CLOTHING(p,ctx,W,H);
  for(let t of tattoos.filter(t=>t.part===p.id)){let a=assetMap()[t.asset];let img=imgCache[t.asset];if(!img||!img.complete||!img.naturalWidth)continue;const u=t.u*W,v=(1-t.v)*H,w=t.size*W,ratio=a.ratio||1,h=clamp(t.size*p.circumference/(p.length*ratio),.006,1.25)*H;
  for(let offset of [-W,0,W]){ctx.save();ctx.translate(u+offset,v);ctx.rotate(t.rotation*Math.PI/180);ctx.globalAlpha=t.opacity??.91;ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore()}
  }
@@ -412,7 +413,7 @@ function refreshTexture(p){const ctx=p.ctx,W=p.canvas.width,H=p.canvas.height;ct
 function updateCamera(){let cp=Math.cos(currentPitch),sp=Math.sin(currentPitch),sy=Math.sin(currentYaw),cy=Math.cos(currentYaw);cam={eye:add(camTarget,[camDist*sy*cp,camDist*sp,camDist*cy*cp]),right:[cy,0,-sy],up:[-sy*sp,cp,-cy*sp],forward:[-sy*cp,-sp,-cy*cp]};let projection=perspective(36*Math.PI/180,canvas.width/canvas.height,.1,100);viewProjection=mulMat(projection,lookAt(cam.eye,camTarget,[0,1,0]));}
 let screenW=0,screenH=0,dirtyScene=true;
 function requestDraw(){dirtyScene=true}
-function drawScene(){let dpr=Math.min(2,window.devicePixelRatio||1);let w=Math.max(1,Math.round(canvas.clientWidth*dpr)),h=Math.max(1,Math.round(canvas.clientHeight*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;requestDraw()}
+function drawScene(){let dpr=Math.min(window.INK_ATLAS_DPR_CAP||2,window.devicePixelRatio||1);let w=Math.max(1,Math.round(canvas.clientWidth*dpr)),h=Math.max(1,Math.round(canvas.clientHeight*dpr));if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;requestDraw()}
  if(!dirtyScene)return;dirtyScene=false;updateCamera();if(software){drawSoftware();renderSelection();return}gl.viewport(0,0,w,h);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.clearColor(.083,.108,.137,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(program);gl.uniformMatrix4fv(uVP,false,viewProjection);
  for(let p of parts){if(p.dirty)refreshTexture(p);gl.bindBuffer(gl.ARRAY_BUFFER,p.pb);gl.vertexAttribPointer(aPos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(aPos);gl.bindBuffer(gl.ARRAY_BUFFER,p.nb);gl.vertexAttribPointer(aNorm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(aNorm);gl.bindBuffer(gl.ARRAY_BUFFER,p.ub);gl.vertexAttribPointer(aUV,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(aUV);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,p.ib);gl.bindTexture(gl.TEXTURE_2D,p.texture);gl.drawElements(gl.TRIANGLES,p.count,p.indexType||gl.UNSIGNED_SHORT,0)}
  renderSelection();}
@@ -453,7 +454,8 @@ function drawSoftware(){
  for(let s of symbols){ctx.save();ctx.translate(s.x,s.y);ctx.rotate(s.ang+s.t.rotation*Math.PI/180);ctx.globalAlpha=s.t.opacity??.92;ctx.drawImage(s.img,-s.w/2,-s.h/2,s.w,s.h);ctx.restore()}
 }
 
-function loop(){drawScene();requestAnimationFrame(loop)}requestAnimationFrame(loop);
+let renderPaused=document.hidden;document.addEventListener('visibilitychange',()=>{renderPaused=document.hidden;if(!renderPaused)requestDraw()});
+function loop(){if(!renderPaused)drawScene();requestAnimationFrame(loop)}requestAnimationFrame(loop);
 function rayFromScreen(px,py){let x=(px/canvas.width*2-1),y=1-py/canvas.height*2;let tan=Math.tan(36*Math.PI/360);let d=normal(add(cam.forward,add(scale(cam.right,x*tan*canvas.width/canvas.height),scale(cam.up,y*tan))));return {o:cam.eye,d}}
 function aabbHit(o,d,mi,ma){let min=-1e12,max=1e12;for(let k=0;k<3;k++){if(Math.abs(d[k])<1e-9){if(o[k]<mi[k]||o[k]>ma[k])return false;continue}let a=(mi[k]-o[k])/d[k],b=(ma[k]-o[k])/d[k];if(a>b)[a,b]=[b,a];min=Math.max(min,a);max=Math.min(max,b);if(max<min)return false}return max>=0}
 function rayTriangle(o,d,positions,ia,ib,ic){let a=ia*3,b=ib*3,c=ic*3,A=[positions[a],positions[a+1],positions[a+2]],B=[positions[b],positions[b+1],positions[b+2]],C=[positions[c],positions[c+1],positions[c+2]],e1=sub(B,A),e2=sub(C,A),pvec=cross(d,e2),det=dot(e1,pvec);if(Math.abs(det)<1e-8)return null;let inv=1/det,tvec=sub(o,A),u=dot(tvec,pvec)*inv;if(u<0||u>1)return null;let qvec=cross(tvec,e1),v=dot(d,qvec)*inv;if(v<0||u+v>1)return null;let dist=dot(e2,qvec)*inv;if(dist<0.001)return null;return {dist,u,v};}
@@ -561,7 +563,7 @@ const markerFix=renderSelection;renderSelection=function(){let m=$('selectionMar
  * preserve joints + weighted skinning, and reproject the tattoo atlas to model coordinates.
  * This implementation is intentionally dependency-free and keeps all model bytes local. */
 const importModelUI=$('bodyModelUpload'),modelStatus=$('modelStatus');
-const modelBaseURL='https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89';
+const modelBaseURL=window.INK_ATLAS_SELECTED_BODY_MODEL==='female'?'https://www.innerscene.com/tools/library/3d-parts/female-base-mesh-3d-person-rigged-a-pose-dba97ed5':'https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89';
 const GLBCOMPS={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array};
 const GLBSIZE={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16};
 const Midentity=()=>[1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
@@ -631,7 +633,7 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
  function updateAngles(angles){let done=new Uint8Array(n);
   function nodeWorld(i){if(done[i])return worldNow[i];done[i]=1;let pw=parent[i]<0?Midentity():nodeWorld(parent[i]);let w=Mmultiply(pw,locals[i]),rotation=null;
    for(let [k,index] of Object.entries(controls))if(index===i){let theta=(angles[k]||0)*Math.PI/180,axis;if(k.endsWith('Shoulder')){theta*=k.startsWith('left')?-.48:.48;axis=[0,0,1]}else if(k.endsWith('Elbow')){theta*=-1;axis=[1,0,0]}else{axis=[1,0,0]}rotation={theta,axis}}
-   for(let [k,index] of Object.entries(supportBones))if(index===i&&index>=0){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,fraction=.04;rotation={theta:(angles[side+'Shoulder']||0)*Math.PI/180*direction*fraction,axis:[0,0,1]}}
+   for(let [k,index] of Object.entries(supportBones))if(index===i&&index>=0){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,fraction=k.endsWith('Clavicle')?.13:.09;rotation={theta:(angles[side+'Shoulder']||0)*Math.PI/180*direction*fraction,axis:[0,0,1]}}
    if(rotation){let anchor=[w[12],w[13],w[14]],about=Mmultiply(Mtranslation(anchor),Mmultiply(MrotAxis(rotation.axis,rotation.theta),Mtranslation(anchor.map(v=>-v))));w=Mmultiply(about,w)}return worldNow[i]=w}
   for(let i=0;i<n;i++)nodeWorld(i);
   for(let j of allowed){let matrix=Mmultiply(worldNow[j],ibmWorld.get(j)||Midentity());matrices.set(j,matrix);dualQuats.set(j,DQfromMatrix(matrix));}
@@ -642,7 +644,7 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
    else p=Mpoint(worldNow[inf.meshNode],inf.local);
    full[3*i]=(p[0]-midX)*sc;full[3*i+1]=(p[1]-bmin[1])*sc-3.41;full[3*i+2]=(p[2]-midZ)*sc;
   }
-  const profile=window.INK_ATLAS_BODY_PROFILE||'balanced',shape=profile==='lean'?[.975,.97]:profile==='athletic'?[1.018,1.028]:profile==='broad'?[1.04,1.03]:[1,1],measure=window.INK_ATLAS_MEASUREMENTS||{},heightScale=clamp((measure.heightCm||178)/178,.78,1.22),frame=measure.frame||'balanced',frameShape=frame==='soft'?[1.022,1.035]:frame==='angular'?[.985,.972]:frame==='androgynous'?[.99,1.0]:[1,1],safeRatio=(value,base,strength=.64)=>clamp(1+(((Number(value)||base)/base)-1)*strength,.82,1.22),chest=safeRatio(measure.chestCm,96),waist=safeRatio(measure.waistCm,82),hips=safeRatio(measure.hipsCm,96),biceps=safeRatio(measure.bicepsCm,32,.52),thighs=safeRatio(measure.thighsCm,56,.56),shoulders=safeRatio(measure.shoulderCm,44,.62);
+  const profile=window.INK_ATLAS_BODY_PROFILE||'balanced',shape=profile==='lean'?[.975,.97]:profile==='athletic'?[1.018,1.028]:profile==='broad'?[1.04,1.03]:[1,1],measure=window.INK_ATLAS_MEASUREMENTS||{},female=measure.modelType==='female',base=female?{chest:91,waist:74,hips:99,biceps:28,thighs:58,shoulders:39}:{chest:96,waist:82,hips:96,biceps:32,thighs:56,shoulders:44},heightScale=clamp((measure.heightCm||178)/178,.78,1.22),frame=measure.frame||'balanced',frameShape=frame==='soft'?[1.022,1.035]:frame==='angular'?[.985,.972]:frame==='androgynous'?[.99,1.0]:[1,1],safeRatio=(value,baseline,strength=.64)=>clamp(1+(((Number(value)||baseline)/baseline)-1)*strength,.84,1.19),chest=safeRatio(measure.chestCm,base.chest),waist=safeRatio(measure.waistCm,base.waist),hips=safeRatio(measure.hipsCm,base.hips),biceps=safeRatio(measure.bicepsCm,base.biceps,.52),thighs=safeRatio(measure.thighsCm,base.thighs,.56),shoulders=safeRatio(measure.shoulderCm,base.shoulders,.62);
   for(let i=0;i<full.length;i+=3){
    let nx=fitted[i],ny=fitted[i+1],nz=fitted[i+2],ax=Math.abs(nx),side=nx<0?-1:1,x=full[i],z=full[i+2],central=1-step01(.60,1.12,ax),torsoY=step01(-.42,-.06,ny)*(1-step01(2.26,2.50,ny)),chestW=step01(.72,1.14,ny)*(1-step01(2.08,2.38,ny))*central,waistW=step01(-.18,.22,ny)*(1-step01(.92,1.30,ny))*central,pelvisW=step01(-1.34,-1.04,ny)*(1-step01(.14,.46,ny))*(1-step01(.72,1.08,ax)),shoulderW=step01(1.30,1.72,ny)*(1-step01(2.31,2.52,ny))*step01(.25,.58,ax)*(1-step01(1.72,2.02,ax)),armW=step01(.64,.94,ax)*(1-step01(1.70,2.02,ax))*step01(.48,.80,ny)*(1-step01(2.36,2.62,ny)),thighW=step01(.10,.26,ax)*(1-step01(.82,1.05,ax))*step01(-2.62,-2.34,ny)*(1-step01(-.54,-.22,ny));
    const globalX=shape[0]*frameShape[0],globalZ=shape[1]*frameShape[1],torsoScale=1+(chest-1)*chestW+(waist-1)*waistW+(hips-1)*pelvisW;
@@ -652,6 +654,10 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
    const armCenter=side*(.94+Math.max(0,2.08-ny)*.20),armDelta=(nx-armCenter)*(biceps-1)*armW,thighDelta=(nx-side*.42)*(thighs-1)*thighW;
    x+=(armDelta+thighDelta)*globalX;
    z+=nz*((biceps-1)*armW+(thighs-1)*thighW)*globalZ;
+   // Pose-space shoulder correctives preserve the deltoid cap and axillary volume
+   // that linear skinning otherwise collapses at high arm abduction.
+   const sideName=side<0?'left':'right',shoulderAngle=clamp((angles[sideName+'Shoulder']||0)/155,0,1),lift=Math.sin(shoulderAngle*Math.PI*.5),cap=Math.exp(-Math.pow((ax-.92)/.34,2)-Math.pow((ny-2.10)/.43,2)),axilla=Math.exp(-Math.pow((ax-.72)/.24,2)-Math.pow((ny-1.67)/.30,2));
+   x+=side*lift*(.040*cap+.026*axilla);full[i+1]+=lift*(.026*cap-.014*axilla);z+=Math.sign(nz||1)*lift*(.022*cap+.012*axilla);
    full[i]=x;full[i+1]=(full[i+1]+3.41)*heightScale-3.41;full[i+2]=z;
   }
  }
@@ -678,7 +684,13 @@ modelDropArea.addEventListener('drop',e=>{let file=[...e.dataTransfer.files].fin
 loadLayout();setPose({});setView('front');renderLibrary();updateUI();
 if(stateRestored)toast('Your previous tattoo layout was restored');else toast('Ready — select a tattoo to place it');
 </script>
-<script src="model-data.js"></script>
-<script src="v6.js?v=1.0.1-r1"></script>
-<script src="v7.js?v=1.0.1-r1"></script>
+<script>
+try {
+  const saved=JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1')||'{}');
+  window.INK_ATLAS_SELECTED_BODY_MODEL=localStorage.getItem('inkAtlas_body_model')||saved.bodySettings?.modelType||'male';
+} catch (_) { window.INK_ATLAS_SELECTED_BODY_MODEL='male'; }
+document.write(`<script src="${window.INK_ATLAS_SELECTED_BODY_MODEL==='female'?'female-model-data.js':'model-data.js'}"><\/script>`);
+</script>
+<script src="v6.js?v=1.1.0"></script>
+<script src="v7.js?v=1.1.0"></script>
 </body></html>

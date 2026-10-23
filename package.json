@@ -1,11 +1,16 @@
 {
   "name": "ink-atlas",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "description": "Local-first 3D tattoo placement simulator",
   "scripts": {
     "check": "node scripts/validate-release.mjs",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
     "serve": "python3 -m http.server 8765 --bind 127.0.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
   },
   "license": "MIT"
 }
