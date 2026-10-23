@@ -1,0 +1,13 @@
+{
+  "name": "Ink Atlas 1.0 — 3D Tattoo Placement Simulator",
+  "short_name": "Ink Atlas",
+  "description": "Offline 3D tattoo placement, pose analysis, colour planning and stencil export.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c0f12",
+  "theme_color": "#111418",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
