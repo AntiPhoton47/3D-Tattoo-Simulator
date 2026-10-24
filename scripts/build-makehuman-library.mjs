@@ -17,6 +17,7 @@ const categoryFor = (name,entry,assetName) => {
 })[name.match(/^[a-z]+/i)?.[0].toLowerCase()] || 'Accessories';};
 const clean = value => String(value || '').trim();
 const normal = value => clean(value).toLowerCase().replace(/[^a-z0-9]+/g, '');
+const canonicalScale = 6.88 / (8.4967 - -8.4488);
 const humanize = value => clean(value).replace(/([a-z])([A-Z])/g,'$1 $2').replace(/([A-Za-z])(\d)/g,'$1 $2').replace(/(\d)([A-Za-z])/g,'$1 $2').replace(/[_-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
 const nameAliases=new Map(Object.entries({
   '50supdo1':'Updo','animehair':'Anime Hair','blondwithheadband':'Blonde With Headband','cornrowsofelv5':'Cornrows','doublemhbraid':'Double Braid','fhair01':'Layered Hair','frenchbraid1mh01':'French Braid','grumphair':'Tousled Hair','beard1longscruffy3':'Long Scruffy Beard','beardsigmund':'Sigmund Beard','beardviking':'Viking Beard','lowpoly':'Low Poly Eyes'
@@ -38,12 +39,20 @@ const cleanName=(value,author='',category='')=>{
 const encode = array => Buffer.from(array.buffer, array.byteOffset, array.byteLength).toString('base64');
 const zipList = zip => execFileSync('unzip', ['-Z1', zip], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }).split(/\r?\n/).filter(Boolean);
 const zipRead = (zip, entry) => execFileSync('unzip', ['-p', zip, entry], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+const archivePath = value => value.replaceAll('\\', '/').replace(/^\.\//, '');
+const resolveArchiveEntry = (entries, ownerEntry, reference) => {
+  if (!reference) return null;
+  const direct = archivePath(join(dirname(ownerEntry), reference));
+  return entries.find(entry => archivePath(entry) === direct)
+    || entries.find(entry => dirname(archivePath(entry)) === dirname(archivePath(ownerEntry)) && basename(entry) === basename(reference))
+    || entries.find(entry => basename(entry) === basename(reference));
+};
 
 function parseOBJ(source) {
   const sourcePositions = [], texcoords = [], positions = [], uvs = [], sourceVertices = [], triangles = [], vertexMap = new Map();
   // Match the normalization used by importRiggedGeometry for the canonical
   // hm08 base.obj (CC0): 6.88 scene units tall with feet at -3.41.
-  const canonicalScale = 6.88 / (8.4967 - -8.4488), canonicalMinY = -8.4488, canonicalMidZ = (-1.1034 + 3.2564) / 2;
+  const canonicalMinY = -8.4488, canonicalMidZ = (-1.1034 + 3.2564) / 2;
   for (const raw of source.split(/\r?\n/)) {
     const line = raw.trim();
     if (line.startsWith('v ')) {
@@ -71,47 +80,65 @@ function parseOBJ(source) {
 
 function parseBindings(source, vertexCount) {
   const marker = source.match(/^verts\s+0\s*$/m); if (!marker) return null;
-  const indices = new Uint16Array(vertexCount * 3), weights = new Uint8Array(vertexCount * 3); let count = 0;
+  const indices = new Uint16Array(vertexCount * 3), weights = new Float32Array(vertexCount * 3), offsets = new Float32Array(vertexCount * 3); let count = 0;
   for (const raw of source.slice(marker.index + marker[0].length).split(/\r?\n/)) {
     const line = raw.trim(); if (!line || line.startsWith('#')) continue;
     const values = line.split(/\s+/).map(Number); if (!values.length || !values.every(Number.isFinite)) break;
-    if (values.length === 1) { indices[count * 3] = values[0]; weights[count * 3] = 255; count++; }
+    if (values.length === 1) { indices[count * 3] = values[0]; weights[count * 3] = 1; count++; }
     else if (values.length >= 6) {
-      const rawWeights = values.slice(3, 6), total = rawWeights.reduce((sum, value) => sum + value, 0) || 1, q = rawWeights.map(value => Math.max(0, Math.round(value / total * 255)));
-      q[0] += 255 - q[0] - q[1] - q[2];
-      for (let axis = 0; axis < 3; axis++) { indices[count * 3 + axis] = values[axis]; weights[count * 3 + axis] = q[axis]; }
+      const rawWeights = values.slice(3, 6), total = rawWeights.reduce((sum, value) => sum + value, 0) || 1;
+      for (let axis = 0; axis < 3; axis++) { indices[count * 3 + axis] = values[axis]; weights[count * 3 + axis] = rawWeights[axis] / total; offsets[count * 3 + axis] = values[6 + axis] || 0; }
       count++;
     } else break;
     if (count === vertexCount) break;
   }
-  return count === vertexCount ? { indices, weights } : null;
+  if (count !== vertexCount) return null;
+  const scaleRefs = ['x','y','z'].map(axis => {
+    const match = source.match(new RegExp(`^${axis}_scale\\s+(\\d+)\\s+(\\d+)\\s+([0-9.eE+-]+)`, 'm'));
+    return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : null;
+  });
+  return { indices, weights, offsets, scaleRefs };
+}
+
+function parseDeleteVerts(source) {
+  const marker=source.match(/^delete_verts\s*$/m);if(!marker)return new Uint16Array();
+  const values=[];for(const raw of source.slice(marker.index+marker[0].length).split(/\r?\n/)){const line=raw.trim();if(!line||line.startsWith('#'))continue;if(!/^[\d\s-]+$/.test(line))break;const tokens=line.split(/\s+/);for(let i=0;i<tokens.length;i++){const start=Number(tokens[i]);if(!Number.isInteger(start))continue;if(tokens[i+1]==='-'&&Number.isInteger(Number(tokens[i+2]))){const end=Number(tokens[i+2]);for(let value=start;value<=end;value++)values.push(value);i+=2;}else values.push(start);}}
+  return new Uint16Array([...new Set(values)].sort((a,b)=>a-b));
+}
+
+function quantizeRange(values,levels=65535,Type=Uint16Array,components=3) {
+  const min = Array(components).fill(Infinity), max = Array(components).fill(-Infinity);
+  for (let i = 0; i < values.length; i++) { const axis = i % components; min[axis] = Math.min(min[axis], values[i]); max[axis] = Math.max(max[axis], values[i]); }
+  const scale = max.map((value, axis) => Math.max(1e-12, (value - min[axis]) / levels)), result = new Type(values.length);
+  for (let i = 0; i < values.length; i++) result[i] = Math.max(0, Math.min(levels, Math.round((values[i] - min[i % components]) / scale[i % components])));
+  return { values: result, min, scale };
 }
 
 const outputDir = 'assets/appearance-library',textureDir='assets/appearance-textures',temporary=mkdtempSync(join(tmpdir(),'ink-atlas-materials-'));
 rmSync(outputDir, { recursive: true, force: true }); rmSync(textureDir,{recursive:true,force:true});mkdirSync(outputDir, { recursive: true });mkdirSync(textureDir,{recursive:true});
 const packs = readdirSync(downloads).filter(name => packPattern.test(name)).sort(), catalog = [], skipped = [];
 for (const packFile of packs) {
-  const zip = join(downloads, packFile), pack = packFile.replace(/\.zip$/i, ''), entries = zipList(zip), entryByBase = new Map(entries.map(entry => [basename(entry), entry]));
+  const zip = join(downloads, packFile), pack = packFile.replace(/\.zip$/i, ''), entries = zipList(zip);
   const jsonEntry = entries.find(entry => entry.toLowerCase().endsWith('.json')); let metadata = {};
   try { if (jsonEntry) metadata = JSON.parse(zipRead(zip, jsonEntry)); } catch (_) {}
   const metadataByName = new Map(Object.entries(metadata).map(([key, value]) => [normal(key), value]));
   for (const mhEntry of entries.filter(entry => entry.toLowerCase().endsWith('.mhclo')&&(!/^makehuman_system/i.test(pack)||/^eyes\//i.test(entry))).sort()) {
     try {
-      const mhclo = zipRead(zip, mhEntry), objectName = mhclo.match(/^obj_file\s+(.+)$/m)?.[1]?.trim(), objEntry = objectName && entryByBase.get(basename(objectName));
+      const mhclo = zipRead(zip, mhEntry), objectName = mhclo.match(/^obj_file\s+(.+)$/m)?.[1]?.trim(), objEntry = resolveArchiveEntry(entries,mhEntry,objectName);
       if (!objEntry) throw new Error('missing referenced OBJ');
       const geometry = parseOBJ(zipRead(zip, objEntry)), sourceBindings = parseBindings(mhclo, geometry.sourceVertexCount), mhName = mhclo.match(/^name\s+(.+)$/m)?.[1]?.trim() || basename(mhEntry, '.mhclo'), key = normal(basename(mhEntry, '.mhclo'));
       const meta = metadataByName.get(key) || metadataByName.get(normal(mhName)) || {}, slug = `${pack}__${basename(mhEntry, '.mhclo')}`.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), headerAuthor = mhclo.match(/^#\s*author\s+(.+)$/mi)?.[1];
       const description = clean(meta.description), genderText = `${mhName} ${description}`.toLowerCase(), compatibility = /\bfemale\b/.test(genderText) && !/\bmale\b/.test(genderText) ? 'female' : /\bmale\b/.test(genderText) && !/\bfemale\b/.test(genderText) ? 'male' : 'all',category=categoryFor(pack,mhEntry,mhName);if(!category)continue;
-      const author=clean(meta.author) || clean(headerAuthor) || 'MakeHuman community contributor',payload = { positionType:'q16', positionMin:geometry.min, positionScale:geometry.scale, positions:encode(geometry.quantized), uvs:encode(geometry.quantizedUV), indexType:geometry.indices instanceof Uint32Array?'u32':'u16', indices:encode(geometry.indices) };
-      let bindings=null;if(sourceBindings){const bindIndices=new Uint16Array(geometry.vertexCount*3),bindWeights=new Uint8Array(geometry.vertexCount*3);geometry.sourceVertices.forEach((source,index)=>{bindIndices.set(sourceBindings.indices.subarray(source*3,source*3+3),index*3);bindWeights.set(sourceBindings.weights.subarray(source*3,source*3+3),index*3);});bindings={indices:bindIndices,weights:bindWeights};Object.assign(payload, { bindIndices:encode(bindIndices), bindWeights:encode(bindWeights) });}
-      const materialName=mhclo.match(/^material\s+(.+)$/m)?.[1]?.trim(),materialEntry=(materialName&&entries.find(entry=>basename(entry)===basename(materialName)))||entries.find(entry=>dirname(entry)===dirname(mhEntry)&&entry.toLowerCase().endsWith('.mhmat'));let material={diffuseColor:[1,1,1],specularColor:[.04,.04,.04],shininess:.15,opacity:1},texture='';
-      if(materialEntry){const materialSource=zipRead(zip,materialEntry),numbers=key=>materialSource.match(new RegExp(`^${key}\\s+([0-9.eE+ -]+)$`,'m'))?.[1].trim().split(/\s+/).map(Number);material.diffuseColor=numbers('diffuseColor')||material.diffuseColor;material.specularColor=numbers('specularColor')||material.specularColor;material.shininess=Number(materialSource.match(/^shininess\s+([0-9.eE+-]+)/m)?.[1]??material.shininess);material.opacity=Number(materialSource.match(/^opacity\s+([0-9.eE+-]+)/m)?.[1]??material.opacity);const textureName=materialSource.match(/^diffuseTexture\s+(.+)$/m)?.[1]?.trim(),textureEntry=textureName&&(entries.find(entry=>dirname(entry)===dirname(materialEntry)&&basename(entry)===basename(textureName))||entries.find(entry=>basename(entry)===basename(textureName)));if(textureEntry){try{const extension=extname(textureEntry)||'.png',input=join(temporary,`${slug}-source${extension}`);writeFileSync(input,execFileSync('unzip',['-p',zip,textureEntry],{encoding:null,maxBuffer:128*1024*1024}));const info=execFileSync('sips',['-g','hasAlpha',input],{encoding:'utf8'}),alpha=/hasAlpha:\s*yes/i.test(info),output=join(textureDir,`${slug}.${alpha?'png':'jpg'}`),args=['-Z','512'];if(!alpha)args.push('--setProperty','format','jpeg','--setProperty','formatOptions','78');args.push(input,'--out',output);execFileSync('sips',args,{stdio:'ignore'});texture=`assets/appearance-textures/${basename(output)}`;}catch(_){}}}
+      const author=clean(meta.author) || clean(headerAuthor) || 'MakeHuman community contributor',deleteVerts=parseDeleteVerts(mhclo),payload = { positionType:'q16', positionMin:geometry.min, positionScale:geometry.scale, positions:encode(geometry.quantized), uvs:encode(geometry.quantizedUV), indexType:geometry.indices instanceof Uint32Array?'u32':'u16', indices:encode(geometry.indices) };if(deleteVerts.length)payload.deleteVerts=encode(deleteVerts);
+      let bindings=null;if(sourceBindings){const bindIndices=new Uint16Array(geometry.vertexCount*3),bindWeightsFloat=new Float32Array(geometry.vertexCount*2),bindOffsetsFloat=new Float32Array(geometry.vertexCount*3);geometry.sourceVertices.forEach((source,index)=>{bindIndices.set(sourceBindings.indices.subarray(source*3,source*3+3),index*3);bindWeightsFloat[index*2]=sourceBindings.weights[source*3];bindWeightsFloat[index*2+1]=sourceBindings.weights[source*3+1];bindOffsetsFloat.set(sourceBindings.offsets.subarray(source*3,source*3+3),index*3);});const bindWeights=quantizeRange(bindWeightsFloat,65535,Uint16Array,2),bindOffsets=quantizeRange(bindOffsetsFloat,255,Uint8Array,3);bindings={indices:bindIndices,weights:bindWeights.values,offsets:bindOffsets.values};Object.assign(payload, { bindIndices:encode(bindIndices), bindWeightType:'q16x2', bindWeightMin:bindWeights.min, bindWeightScale:bindWeights.scale, bindWeights:encode(bindWeights.values), bindOffsetType:'q8', bindOffsetMin:bindOffsets.min, bindOffsetScale:bindOffsets.scale, bindOffsets:encode(bindOffsets.values), bindScaleRefs:sourceBindings.scaleRefs, canonicalScale });}
+      const materialName=mhclo.match(/^material\s+(.+)$/m)?.[1]?.trim(),materialEntry=resolveArchiveEntry(entries,mhEntry,materialName)||entries.find(entry=>dirname(entry)===dirname(mhEntry)&&entry.toLowerCase().endsWith('.mhmat'));let material={diffuseColor:[1,1,1],specularColor:[.04,.04,.04],shininess:.15,opacity:1},texture='';
+      if(materialEntry){const materialSource=zipRead(zip,materialEntry),numbers=key=>materialSource.match(new RegExp(`^${key}\\s+([0-9.eE+ -]+)$`,'m'))?.[1].trim().split(/\s+/).map(Number);material.diffuseColor=numbers('diffuseColor')||material.diffuseColor;material.specularColor=numbers('specularColor')||material.specularColor;material.shininess=Number(materialSource.match(/^shininess\s+([0-9.eE+-]+)/m)?.[1]??material.shininess);material.opacity=Number(materialSource.match(/^opacity\s+([0-9.eE+-]+)/m)?.[1]??material.opacity);const textureName=materialSource.match(/^diffuseTexture\s+(.+)$/m)?.[1]?.trim(),textureEntry=resolveArchiveEntry(entries,materialEntry,textureName);if(textureEntry){try{const extension=extname(textureEntry)||'.png',input=join(temporary,`${slug}-source${extension}`);writeFileSync(input,execFileSync('unzip',['-p',zip,textureEntry],{encoding:null,maxBuffer:128*1024*1024}));const info=execFileSync('sips',['-g','hasAlpha',input],{encoding:'utf8'}),alpha=/hasAlpha:\s*yes/i.test(info),output=join(textureDir,`${slug}.${alpha?'png':'jpg'}`),args=['-Z','512'];if(!alpha)args.push('--setProperty','format','jpeg','--setProperty','formatOptions','78');args.push(input,'--out',output);execFileSync('sips',args,{stdio:'ignore'});texture=`assets/appearance-textures/${basename(output)}`;}catch(_){}}}
       // A number of community .mhmat files use opacity 0 while relying on the
       // diffuse image's alpha channel. Treat those as texture-driven opacity.
       if(texture&&material.opacity<=0)material.opacity=1;
       payload.material=material;if(texture)payload.texture=texture;
       writeFileSync(join(outputDir, `${slug}.js`), `window.INK_ATLAS_ASSET_PAYLOADS=window.INK_ATLAS_ASSET_PAYLOADS||{};window.INK_ATLAS_ASSET_PAYLOADS[${JSON.stringify(slug)}]=${JSON.stringify(payload)};\n`);
-      catalog.push({ id:slug, name:cleanName(mhName,author,category), category, pack, license:clean(meta.license) || (/cc0/i.test(pack)?'CC0':'CC-BY'), author, source:clean(meta.source), compatibility, bound:Boolean(bindings), textured:Boolean(texture), vertices:geometry.vertexCount, triangles:geometry.triangleCount, file:`assets/appearance-library/${slug}.js` });
+      catalog.push({ id:slug, name:cleanName(mhName,author,category), category, pack, license:clean(meta.license) || (/cc0/i.test(pack)?'CC0':'CC-BY'), author, source:clean(meta.source), compatibility, bound:Boolean(bindings), textured:Boolean(texture), hiddenBodyVertices:deleteVerts.length, vertices:geometry.vertexCount, triangles:geometry.triangleCount, file:`assets/appearance-library/${slug}.js` });
     } catch (error) { skipped.push(`${packFile}: ${basename(mhEntry)} (${error.message})`); }
   }
 }

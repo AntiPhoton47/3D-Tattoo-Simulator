@@ -398,8 +398,8 @@
     if (appearanceLoadPromises.has(id)) return appearanceLoadPromises.get(id);
     const item = appearanceById.get(id); if (!item) return Promise.reject(new Error('Unknown appearance asset'));
     const promise = new Promise((resolve, reject) => {
-      const script = document.createElement('script'); script.src = `${item.file}?v=1.3.0`; script.async = true;
-      script.onload = () => { requestDraw(); resolve(id); };
+      const script = document.createElement('script'); script.src = `${item.file}?v=1.4.0`; script.async = true;
+      script.onload = () => { if((bodySettings.equippedAssets||[]).includes(id))updateAppearanceBodyMask();requestDraw();resolve(id); };
       script.onerror = () => { appearanceLoadPromises.delete(id); reject(new Error(`Could not load ${item.name}`)); };
       document.head.append(script);
     });
@@ -420,12 +420,12 @@
       const quantized = typedArrayFromBase64(raw.positions, Uint16Array); restPositions = new Float32Array(quantized.length);
       for (let i = 0; i < quantized.length; i++) restPositions[i] = raw.positionMin[i % 3] + quantized[i] * raw.positionScale[i % 3];
     } else restPositions = typedArrayFromBase64(raw.positions, Float32Array);
-    const catalog=appearanceById.get(id);if(catalog?.category==='Eyes'){for(let i=0;i<restPositions.length;i+=3){const centreX=restPositions[i]<0?-.112:.112,centreY=2.985,centreZ=.108;restPositions[i]=centreX+(restPositions[i]-centreX)*.72;restPositions[i+1]=centreY+(restPositions[i+1]-centreY)*.48;restPositions[i+2]=centreZ+(restPositions[i+2]-centreZ)*.70-.040;}}
-    if(catalog?.category==='Facial hair'){let maxY=-Infinity;for(let i=1;i<restPositions.length;i+=3)maxY=Math.max(maxY,restPositions[i]);const targetMax=/moustache/i.test(catalog.name)?3.08:3.14,shift=Math.min(0,targetMax-maxY);for(let i=1;i<restPositions.length;i+=3)restPositions[i]+=shift;}
-    if(catalog?.category==='Hair'){const centreY=3.0,centreZ=-.05;for(let i=0;i<restPositions.length;i+=3){restPositions[i]*=1.08;restPositions[i+1]=centreY+(restPositions[i+1]-centreY)*1.10+.018;restPositions[i+2]=centreZ+(restPositions[i+2]-centreZ)*1.08;}}
+    const catalog=appearanceById.get(id);
     const indices = typedArrayFromBase64(raw.indices, raw.indexType === 'u32' ? Uint32Array : Uint16Array);
     let uvs=new Float32Array(restPositions.length/3*2);if(raw.uvs){const encodedUV=typedArrayFromBase64(raw.uvs,Uint16Array);for(let i=0;i<encodedUV.length;i++)uvs[i]=encodedUV[i]/65535;}
-    const mesh = { id, catalog, material:raw.material||{}, textureURL:raw.texture||'', textureReady:false, restPositions, positions:restPositions.slice(), normals:new Float32Array(restPositions.length), uvs, indices, bindIndices:raw.bindIndices?typedArrayFromBase64(raw.bindIndices,Uint16Array):null, bindWeights:raw.bindWeights?typedArrayFromBase64(raw.bindWeights,Uint8Array):null, bindRig:null, bindLocalOffsets:null, bindFrameScales:null, count:indices.length, indexType:indices instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, pb:gl.createBuffer(), nb:gl.createBuffer(), ub:gl.createBuffer(), ib:gl.createBuffer(), texture:gl.createTexture() };
+    let bindOffsets=null;if(raw.bindOffsets){const encoded=typedArrayFromBase64(raw.bindOffsets,raw.bindOffsetType==='q8'?Uint8Array:Uint16Array);bindOffsets=new Float32Array(encoded.length);for(let i=0;i<encoded.length;i++)bindOffsets[i]=raw.bindOffsetMin[i%3]+encoded[i]*raw.bindOffsetScale[i%3];}
+    let bindWeights=null,bindWeightDivisor=255;if(raw.bindWeights&&raw.bindWeightType==='q16x2'){const encoded=typedArrayFromBase64(raw.bindWeights,Uint16Array),count=restPositions.length/3;bindWeights=new Float32Array(count*3);for(let vertex=0;vertex<count;vertex++){const a=raw.bindWeightMin[0]+encoded[vertex*2]*raw.bindWeightScale[0],b=raw.bindWeightMin[1]+encoded[vertex*2+1]*raw.bindWeightScale[1];bindWeights[vertex*3]=a;bindWeights[vertex*3+1]=b;bindWeights[vertex*3+2]=1-a-b;}bindWeightDivisor=1;}else if(raw.bindWeights){bindWeights=typedArrayFromBase64(raw.bindWeights,raw.bindWeightType==='u16'?Uint16Array:Uint8Array);bindWeightDivisor=raw.bindWeightType==='u16'?65535:255;}
+    const mesh = { id, catalog, material:raw.material||{}, textureURL:raw.texture||'', textureReady:false, restPositions, positions:restPositions.slice(), normals:new Float32Array(restPositions.length), uvs, indices, deleteVerts:raw.deleteVerts?typedArrayFromBase64(raw.deleteVerts,Uint16Array):null, bindIndices:raw.bindIndices?typedArrayFromBase64(raw.bindIndices,Uint16Array):null, bindWeights, bindWeightDivisor, bindOffsets, bindScaleRefs:raw.bindScaleRefs||null, bindCanonicalScale:Number(raw.canonicalScale)||6.88/(8.4967- -8.4488), bindRig:null, bindLocalOffsets:null, bindFrameScales:null, bindNeutralAnchors:null, bindRestPositions:null, bindSourceError:null, fitStats:null, count:indices.length, indexType:indices instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, pb:gl.createBuffer(), nb:gl.createBuffer(), ub:gl.createBuffer(), ib:gl.createBuffer(), texture:gl.createTexture() };
     recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.ub);gl.bufferData(gl.ARRAY_BUFFER,mesh.uvs,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,255,255,255]));
     if(mesh.textureURL){const image=new Image();image.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);mesh.textureReady=true;requestDraw();};image.src=mesh.textureURL;}
     meshAppearanceCache.set(id,mesh);return mesh;
@@ -436,16 +436,21 @@
     const x=scale(first,1/length1),n=scale(normalRaw,1/normalLength),y=normal(cross(n,x)),length2=Math.max(1e-7,Math.abs(dot(second,y)));
     return {x,y,n,sx:length1,sy:length2};
   }
+  function meshBindingWeights(mesh,at){const divisor=mesh.bindWeightDivisor||255,weights=[mesh.bindWeights[at]/divisor,mesh.bindWeights[at+1]/divisor,mesh.bindWeights[at+2]/divisor],total=weights[0]+weights[1]+weights[2]||1;return weights.map(value=>value/total);}
+  function meshProxyScales(mesh,baseMap,pointAt){
+    return [0,1,2].map(axis=>{const ref=mesh.bindScaleRefs?.[axis];if(!ref||ref.length<3||ref[2]===0)return mesh.bindCanonicalScale;const first=baseMap[ref[0]],second=baseMap[ref[1]];if(first===undefined||second===undefined)return mesh.bindCanonicalScale;const a=pointAt(first),b=pointAt(second),value=Math.abs(a[axis]-b[axis])/Math.abs(ref[2]);return Number.isFinite(value)&&value>1e-8?value:mesh.bindCanonicalScale;});
+  }
   function prepareSurfaceBindings(mesh) {
     if (!importedRig || !mesh.bindIndices || !mesh.bindWeights || !importedRig.neutralPoint) return false;
     if (mesh.bindRig === importedRig && mesh.bindLocalOffsets) return true;
     const baseMap=baseVertexMap();if(!baseMap)return false;
-    const count=mesh.restPositions.length/3,offsets=new Float32Array(count*3),scales=new Float32Array(count*2);
+    const count=mesh.restPositions.length/3,offsets=new Float32Array(count*3),scales=new Float32Array(count*2),neutralAnchors=new Float32Array(count*3),fittedRest=new Float32Array(count*3),sourceErrors=[];
+    const proxyScales=meshProxyScales(mesh,baseMap,index=>importedRig.neutralPoint(index));
     for(let vertex=0;vertex<count;vertex++){
-      const at=vertex*3,canonical=[mesh.bindIndices[at],mesh.bindIndices[at+1],mesh.bindIndices[at+2]];if(canonical.some(index=>index>=baseMap.length))return false;const ids=canonical.map(index=>baseMap[index]),weights=[mesh.bindWeights[at]/255,mesh.bindWeights[at+1]/255,mesh.bindWeights[at+2]/255];
-      const points=ids.map(index=>importedRig.neutralPoint(index)),anchor=[0,0,0];for(let p=0;p<3;p++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[p][axis]*weights[p];const frame=attachmentFrame(points),offset=[mesh.restPositions[at]-anchor[0],mesh.restPositions[at+1]-anchor[1],mesh.restPositions[at+2]-anchor[2]];offsets[at]=dot(offset,frame.x);offsets[at+1]=dot(offset,frame.y);offsets[at+2]=dot(offset,frame.n);scales[vertex*2]=frame.sx;scales[vertex*2+1]=frame.sy;
+      const at=vertex*3,canonical=[mesh.bindIndices[at],mesh.bindIndices[at+1],mesh.bindIndices[at+2]];if(canonical.some(index=>index>=baseMap.length))return false;const ids=canonical.map(index=>baseMap[index]),weights=meshBindingWeights(mesh,at);
+      const points=ids.map(index=>importedRig.neutralPoint(index)),anchor=[0,0,0];for(let p=0;p<3;p++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[p][axis]*weights[p];const frame=attachmentFrame(points),sourceOffset=mesh.bindOffsets?[mesh.bindOffsets[at]*proxyScales[0],mesh.bindOffsets[at+1]*proxyScales[1],mesh.bindOffsets[at+2]*proxyScales[2]]:[mesh.restPositions[at]-anchor[0],mesh.restPositions[at+1]-anchor[1],mesh.restPositions[at+2]-anchor[2]],expected=[anchor[0]+sourceOffset[0],anchor[1]+sourceOffset[1],anchor[2]+sourceOffset[2]],offset=sub(expected,anchor);for(let axis=0;axis<3;axis++){neutralAnchors[at+axis]=anchor[axis];fittedRest[at+axis]=expected[axis];}offsets[at]=dot(offset,frame.x);offsets[at+1]=dot(offset,frame.y);offsets[at+2]=dot(offset,frame.n);scales[vertex*2]=frame.sx;scales[vertex*2+1]=frame.sy;sourceErrors.push(Math.hypot(expected[0]-mesh.restPositions[at],expected[1]-mesh.restPositions[at+1],expected[2]-mesh.restPositions[at+2]));
     }
-    mesh.bindRig=importedRig;mesh.bindLocalOffsets=offsets;mesh.bindFrameScales=scales;return true;
+    sourceErrors.sort((a,b)=>a-b);mesh.bindRig=importedRig;mesh.bindLocalOffsets=offsets;mesh.bindFrameScales=scales;mesh.bindNeutralAnchors=neutralAnchors;mesh.bindRestPositions=fittedRest;mesh.bindSourceError={median:sourceErrors[Math.floor(sourceErrors.length*.5)]||0,p95:sourceErrors[Math.floor(sourceErrors.length*.95)]||0,max:sourceErrors.at(-1)||0};return true;
   }
   function blendPoint(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
   function transformAppearancePoint(id, point) {
@@ -467,18 +472,24 @@
   }
   function updateMeshAppearanceAsset(mesh) {
     if(prepareSurfaceBindings(mesh)){
-      const baseMap=baseVertexMap();
+      const baseMap=baseVertexMap(),detailCategories=new Set(['Eyes','Eyebrows','Eyelashes','Finger nails','Toe nails','Facial hair']),clearance=detailCategories.has(mesh.catalog?.category)?.0025:['Hair','Hats','Eyewear'].includes(mesh.catalog?.category)?.006:.018;let maxMotion=0,maxOffset=0,maxClearanceCorrection=0,invalid=0;
       for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){
-        const at=vertex*3,ids=[baseMap[mesh.bindIndices[at]],baseMap[mesh.bindIndices[at+1]],baseMap[mesh.bindIndices[at+2]]],weights=[mesh.bindWeights[at]/255,mesh.bindWeights[at+1]/255,mesh.bindWeights[at+2]/255],points=ids.map(index=>importedRig.worldPoint(index)),anchor=[0,0,0];
-        for(let p=0;p<3;p++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[p][axis]*weights[p];const frame=attachmentFrame(points),sx=clamp(frame.sx/(mesh.bindFrameScales[vertex*2]||frame.sx),.72,1.42),sy=clamp(frame.sy/(mesh.bindFrameScales[vertex*2+1]||frame.sy),.72,1.42),normalScale=Math.sqrt(sx*sy),local=[mesh.bindLocalOffsets[at]*sx,mesh.bindLocalOffsets[at+1]*sy,mesh.bindLocalOffsets[at+2]*normalScale];for(let axis=0;axis<3;axis++)mesh.positions[at+axis]=anchor[axis]+frame.x[axis]*local[0]+frame.y[axis]*local[1]+frame.n[axis]*local[2];
+        const at=vertex*3,ids=[baseMap[mesh.bindIndices[at]],baseMap[mesh.bindIndices[at+1]],baseMap[mesh.bindIndices[at+2]]],weights=meshBindingWeights(mesh,at),points=ids.map(index=>importedRig.worldPoint(index)),anchor=[0,0,0];
+        for(let p=0;p<3;p++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[p][axis]*weights[p];const motion=[anchor[0]-mesh.bindNeutralAnchors[at],anchor[1]-mesh.bindNeutralAnchors[at+1],anchor[2]-mesh.bindNeutralAnchors[at+2]],frame=attachmentFrame(points),normalOffset=mesh.bindLocalOffsets[at+2],outward=normalOffset<0?-1:1,correctedNormal=outward*Math.max(Math.abs(normalOffset),clearance),local=[mesh.bindLocalOffsets[at],mesh.bindLocalOffsets[at+1],correctedNormal],position=[0,0,0],correction=Math.abs(correctedNormal-normalOffset);for(let axis=0;axis<3;axis++)position[axis]=anchor[axis]+frame.x[axis]*local[0]+frame.y[axis]*local[1]+frame.n[axis]*local[2];maxMotion=Math.max(maxMotion,Math.hypot(...motion));maxOffset=Math.max(maxOffset,Math.hypot(...local));maxClearanceCorrection=Math.max(maxClearanceCorrection,correction);for(let axis=0;axis<3;axis++){const value=position[axis];mesh.positions[at+axis]=value;if(!Number.isFinite(value))invalid++;}
       }
-    }else for(let i=0;i<mesh.restPositions.length;i+=3){const transformed=transformAppearancePoint(mesh.id,[mesh.restPositions[i],mesh.restPositions[i+1],mesh.restPositions[i+2]]);mesh.positions.set(transformed,i);}
+      mesh.fitStats={bound:true,deformationMode:'surface frame + clearance',maxMotion,maxOffset,maxClearanceCorrection,invalidVertices:invalid/3,sourceError:mesh.bindSourceError};
+    }else {for(let i=0;i<mesh.restPositions.length;i+=3){const transformed=transformAppearancePoint(mesh.id,[mesh.restPositions[i],mesh.restPositions[i+1],mesh.restPositions[i+2]]);mesh.positions.set(transformed,i);}mesh.fitStats={bound:false,minScale:1,maxScale:1,maxOffset:0,invalidVertices:0,sourceError:null};}
     recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);
   }
   function activeMeshAppearanceAssets(){
     const result=[];
     for(const id of bodySettings.equippedAssets||[]){const item=appearanceById.get(id);if(!item)continue;const hair=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(item.category),dark=['Eyewear'].includes(item.category),eyes=item.category==='Eyes';result.push({id,colour:eyes?(bodySettings.eyeColor||'#514c48'):hair?'#35261f':dark?'#20262d':'#2e4551',fabric:hair?0:.85,category:item.category});}
     return result;
+  }
+  let appearanceBodyMaskState={hiddenVertices:0,hiddenTriangles:0,totalTriangles:0};
+  function updateAppearanceBodyMask(){
+    if(software||!importedRig)return;const baseMap=baseVertexMap(),hidden=new Uint8Array(importedRig.vertexCount);if(baseMap)for(const id of bodySettings.equippedAssets||[]){const mesh=ensureMeshAppearanceAsset(id);if(!mesh?.deleteVerts)continue;for(const canonical of mesh.deleteVerts){const mapped=baseMap[canonical];if(mapped===undefined)continue;const peers=importedRig.peerIndices?.(mapped)||[mapped];for(const index of peers)if(index<hidden.length)hidden[index]=1;}}
+    let hiddenTriangles=0,totalTriangles=0;for(const part of parts){if(!part.sourceIndices)continue;if(!part.appearanceBaseIndices)part.appearanceBaseIndices=part.indices;const source=part.appearanceBaseIndices,visible=[];totalTriangles+=source.length/3;for(let at=0;at<source.length;at+=3){const a=part.sourceIndices[source[at]],b=part.sourceIndices[source[at+1]],c=part.sourceIndices[source[at+2]];if(hidden[a]||hidden[b]||hidden[c]){hiddenTriangles++;continue;}visible.push(source[at],source[at+1],source[at+2]);}part.indices=new source.constructor(visible);part.count=part.indices.length;gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,part.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,part.indices,gl.DYNAMIC_DRAW);}appearanceBodyMaskState={hiddenVertices:hidden.reduce((sum,value)=>sum+value,0),hiddenTriangles,totalTriangles};
   }
   function renderMeshAppearanceAssets(){
     if(software)return;const active=activeMeshAppearanceAssets();if(!active.length)return;ensureMeshAppearanceProgram();const pgr=meshAppearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
@@ -1166,6 +1177,7 @@
       }
       const file = new File([blob], V6.modelFile, { type: 'model/gltf-binary' });
       await loadAnatomicalGLB(file);
+      updateAppearanceBodyMask();
       if (needsSurfaceCoordinateMigration) migrateLegacySurfaceCoordinates();
       if (restoredPose) setPose(restoredPose);
       $('glCanvas').style.visibility = 'visible';
@@ -1254,13 +1266,13 @@
     await loadAppearanceAsset(id);
     const multi=new Set(['Body accessories','Underlayers']);
     bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id&&(multi.has(item.category)||appearanceById.get(current)?.category!==item.category));
-    bodySettings.equippedAssets.push(id);parts.forEach(part=>part.dirty=true);requestDraw();return item;
+    bodySettings.equippedAssets.push(id);updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();return item;
   }
-  function removeAppearanceAsset(id){bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id);parts.forEach(part=>part.dirty=true);requestDraw();}
-  function appearanceAssetStats(id){const mesh=meshAppearanceCache.get(id);if(!mesh)return null;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(let i=0;i<mesh.positions.length;i+=3)for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],mesh.positions[i+axis]);max[axis]=Math.max(max[axis],mesh.positions[i+axis]);}return {vertices:mesh.positions.length/3,min,max,finite:[...min,...max].every(Number.isFinite)};}
+  function removeAppearanceAsset(id){bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id);updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();}
+  function appearanceAssetStats(id){const mesh=meshAppearanceCache.get(id);if(!mesh)return null;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(let i=0;i<mesh.positions.length;i+=3)for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],mesh.positions[i+axis]);max[axis]=Math.max(max[axis],mesh.positions[i+axis]);}return {vertices:mesh.positions.length/3,min,max,finite:[...min,...max].every(Number.isFinite)&&!mesh.fitStats?.invalidVertices,...mesh.fitStats};}
   window.InkAtlasV7Bridge = {
     bodySettings, appearanceCatalog, measureTattooDistortion, decalMeshes, focusBodyRegion,
-    equipAppearanceAsset, removeAppearanceAsset, appearanceAssetStats, isAppearanceAssetEquipped:id=>(bodySettings.equippedAssets||[]).includes(id),
+    equipAppearanceAsset, removeAppearanceAsset, appearanceAssetStats, appearanceBodyMaskStats:()=>({...appearanceBodyMaskState}), isAppearanceAssetEquipped:id=>(bodySettings.equippedAssets||[]).includes(id),
     resetAnalysisBaselines: () => { for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; },
     markAllDirty: () => { parts.forEach(part => part.dirty = true); requestDraw(); },
     updateClothing: () => { parts.forEach(part => part.dirty = true); requestDraw(); },

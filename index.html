@@ -26,7 +26,7 @@
 <p style="margin:0 0 10px">Bundled sources: <a href="https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89" target="_blank" rel="noopener noreferrer">masculine body ↗</a> · <a href="https://www.innerscene.com/tools/library/3d-parts/female-base-mesh-3d-person-rigged-a-pose-dba97ed5" target="_blank" rel="noopener noreferrer">feminine body ↗</a> (CC0).</p>
 <div class="detailtxt">Custom model files are not stored. Export the layout before changing bodies.</div>
 <div class="separator"></div><div class="eyebrow">Placement note</div><p style="margin-bottom:0">Use the intended artwork for scale checks, and confirm joint creases and final dimensions with your artist.</p></aside>
-<main class="canvas-wrap" id="canvasWrap"><canvas id="glCanvas" aria-label="Interactive 3D body tattoo planner"></canvas><div class="viewtools"><div><div class="viewheading">3D BODY MAP</div><div class="viewtitle" id="viewTitle">Front · free orbit</div></div><div class="viewopts"><button class="btn tiny" data-view="front">Front</button><button class="btn tiny" data-view="back">Back</button><button class="btn tiny" data-view="left">Left</button><button class="btn tiny" data-view="right">Right</button><button class="btn tiny" data-view="three">¾ view</button><button class="btn tiny" data-view="shoulders">Shoulders</button></div></div><div class="model-note">CC0 MakeHuman-derived body · 163-bone rig · seam-aware tattoo projection. Tattoos remain attached while the pose changes.</div><div class="hint" id="hint" aria-live="polite">Drag model to orbit · Select a motif to place it</div><div class="scene-foot">LOCAL-FIRST · REAL-TIME 3D · 1.3</div></main>
+<main class="canvas-wrap" id="canvasWrap"><canvas id="glCanvas" aria-label="Interactive 3D body tattoo planner"></canvas><div class="viewtools"><div><div class="viewheading">3D BODY MAP</div><div class="viewtitle" id="viewTitle">Front · free orbit</div></div><div class="viewopts"><button class="btn tiny" data-view="front">Front</button><button class="btn tiny" data-view="back">Back</button><button class="btn tiny" data-view="left">Left</button><button class="btn tiny" data-view="right">Right</button><button class="btn tiny" data-view="three">¾ view</button><button class="btn tiny" data-view="shoulders">Shoulders</button></div></div><div class="model-note">CC0 MakeHuman-derived body · 163-bone rig · seam-aware tattoo projection. Tattoos remain attached while the pose changes.</div><div class="hint" id="hint" aria-live="polite">Drag model to orbit · Select a motif to place it</div><div class="scene-foot">LOCAL-FIRST · REAL-TIME 3D · 1.4</div></main>
 <aside class="sidebar right"><div class="eyebrow">Edit placement</div><div class="panel-head"><h2>Inspector</h2><span class="pill" id="tatCount">0 tattoos</span></div><div id="inspector"><div class="select-help">Select a tattoo on the body or in the list to resize, rotate, move or recolour it.</div></div><div class="separator"></div>
 <div class="panel-head"><div class="section-label" style="margin:0">Pose studio</div></div>
 <div class="detailtxt">Raise each arm sideways to inspect its underside. Bend elbows forward and knees backward. Pose is only a viewing aid; final joint creases need verification in person.</div>
@@ -674,7 +674,7 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
   }
   const targetMap=window.INK_ATLAS_ANATOMY_DECODED,baseVertexMap=window.INK_ATLAS_ACTIVE_BASE_VERTEX_MAP;if(targetMap&&baseVertexMap){for(const key of ['noseShape','earShape','cheekShape']){const target=targetMap.get(measure[key]);if(!target)continue;for(let row=0;row<target.indices.length;row++){const mapped=baseVertexMap[target.indices[row]],peers=vertexPeers[mapped]||[mapped],at=row*3,dx=target.deltas[at]*target.scale,dy=target.deltas[at+1]*target.scale*heightScale,dz=target.deltas[at+2]*target.scale;for(const index of peers){full[index*3]+=dx;full[index*3+1]+=dy;full[index*3+2]+=dz;}}}}
  }
- const rig={geometry:{v:fitted,tri:new Uint32Array(tris)},vertexCount:positions.length/3,faceCount:tris.length/3,controls,supportBones,neutralPoint:i=>[fitted[i*3],fitted[i*3+1],fitted[i*3+2]],worldPoint:i=>[full[i*3],full[i*3+1],full[i*3+2]],poseUpdate:updateAngles,neutralPose};
+ const rig={geometry:{v:fitted,tri:new Uint32Array(tris)},vertexCount:positions.length/3,faceCount:tris.length/3,controls,supportBones,neutralPoint:i=>[fitted[i*3],fitted[i*3+1],fitted[i*3+2]],worldPoint:i=>[full[i*3],full[i*3+1],full[i*3+2]],peerIndices:i=>vertexPeers[i]||[i],poseUpdate:updateAngles,neutralPose};
  updateAngles(neutralPose);return rig;
 }
 function clearImportedParts(){if(!software)for(let p of parts){for(let buffer of [p.pb,p.nb,p.ub,p.ib])if(buffer)gl.deleteBuffer(buffer);if(p.texture)gl.deleteTexture(p.texture);}}
@@ -704,10 +704,10 @@ try {
 } catch (_) { window.INK_ATLAS_SELECTED_BODY_MODEL='male'; }
 document.write(`<script src="${window.INK_ATLAS_SELECTED_BODY_MODEL==='female'?'female-model-data.js':'model-data.js'}"><\/script>`);
 </script>
-<script src="appearance-catalog.js?v=1.3.0"></script>
-<script src="base-vertex-map.js?v=1.3.0"></script>
-<script src="anatomy-targets.js?v=1.3.0"></script>
-<script src="pose-presets.js?v=1.3.0"></script>
-<script src="v6.js?v=1.3.0"></script>
-<script src="v7.js?v=1.3.0"></script>
+<script src="appearance-catalog.js?v=1.4.0"></script>
+<script src="base-vertex-map.js?v=1.4.0"></script>
+<script src="anatomy-targets.js?v=1.4.0"></script>
+<script src="pose-presets.js?v=1.4.0"></script>
+<script src="v6.js?v=1.4.0"></script>
+<script src="v7.js?v=1.4.0"></script>
 </body></html>

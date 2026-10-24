@@ -15,7 +15,7 @@ Innerscene identifies the model as adapted from MakeHuman CC0 assets and release
 
 `appearance-catalog.js`, `assets/appearance-library/` and `assets/appearance-textures/` contain optimized geometry and diffuse materials generated from 28 MakeHuman community asset packs: Bodyparts 04–06, Dress 01–02, Eyebrows 01, Eyelashes 01, Glasses 01–02, Gloves 01, Hair 01–02, Hats 03, Pants 01–02, Shirts 01–03, Shoes 01–03, Skirts 01–02, Underwear 01–04 and the eyes in MakeHuman System Assets. The catalog records each item's author, license, original source page, intended body compatibility and originating pack.
 
-The collection contains both **CC0** and **CC-BY** works. CC-BY author and source records have been retained from the supplied pack metadata and must remain with redistributed builds. The build preserves positions, triangulated faces, UV seams, available MakeHuman surface bindings and source material parameters. Referenced diffuse images are resized to a maximum dimension of 512 pixels for the web bundle; unreferenced pack files are not redistributed.
+The collection contains both **CC0** and **CC-BY** works. CC-BY author and source records have been retained from the supplied pack metadata and must remain with redistributed builds. The build preserves positions, triangulated faces, UV seams, three-point MakeHuman proxy weights, signed proxy offsets, body-scale references, available `delete_verts` masks and source material parameters. Referenced diffuse images are resized to a maximum dimension of 512 pixels for the web bundle; unreferenced pack files are not redistributed.
 
 `anatomy-targets.js` contains sparse target deltas generated from the supplied CC0 Cheek 01, Ears 01 and Nose 01 target packs. The source archives are not redistributed.
 

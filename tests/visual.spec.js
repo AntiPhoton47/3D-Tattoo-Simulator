@@ -124,6 +124,23 @@ test('face, hair and grooming details use the shared adaptive asset path', async
   await page.screenshot({path:testInfo.outputPath('adaptive-grooming-render.png')});expect(errors).toEqual([]);
 });
 
+for (const model of ['male','female']) test(`${model} body keeps MakeHuman assets fitted through combined shape and pose extremes`, async ({page},testInfo)=>{
+  test.skip(testInfo.project.name!=='desktop');const errors=[];page.on('pageerror',error=>errors.push(error.message));await openClean(page,model);
+  const ids=['shirts01_cc0_toigo_camisole_top','pants02_ccby_punkduck_female_tight_jeans','shoes02_ccby_punkduck_comfortable_sneakers','gloves01_cc0_toigo_gloves_long','hair02_ccby_elvs_micky_afro','glasses02_ccby_punkduck_sport_sunglasses'];
+  for(const id of ids)await page.evaluate(id=>window.InkAtlasV7Bridge.equipAppearanceAsset(id),id);
+  await expect.poll(()=>page.evaluate(()=>window.InkAtlasV7Bridge.appearanceBodyMaskStats().hiddenTriangles)).toBeGreaterThan(0);
+  for(const [key,value] of Object.entries({chestCm:125,waistCm:115,hipsCm:125,bicepsCm:48,thighsCm:76,shoulderCm:57}))await page.locator(`[data-measure="${key}"]`).fill(String(value));
+  if(model==='female')await page.locator('#v7BreastSize').fill('200');
+  for(const [id,value] of Object.entries({abductL:145,abductR:135,forwardL:70,forwardR:-35,twistL:60,twistR:-60,elbowL:125,elbowR:110,hipL:45,hipR:-20,kneeL:110,kneeR:95}))await page.locator(`#${id}`).fill(String(value));
+  await page.waitForTimeout(700);
+  const stats=await page.evaluate(ids=>Object.fromEntries(ids.map(id=>[id,window.InkAtlasV7Bridge.appearanceAssetStats(id)])),ids);
+  expect(stats.shoes02_ccby_punkduck_comfortable_sneakers.vertices).toBe(1078);
+  for(const result of Object.values(stats)){expect(result.bound).toBe(true);expect(result.finite).toBe(true);expect(result.invalidVertices).toBe(0);expect(result.deformationMode).toContain('surface frame');expect(Math.max(...result.max.map(Math.abs),...result.min.map(Math.abs))).toBeLessThan(8);}
+  await page.screenshot({path:testInfo.outputPath(`${model}-adaptive-assets.png`)});
+  for(const id of ids)await page.evaluate(id=>window.InkAtlasV7Bridge.removeAppearanceAsset(id),id);
+  await expect.poll(()=>page.evaluate(()=>window.InkAtlasV7Bridge.appearanceBodyMaskStats().hiddenTriangles)).toBe(0);expect(errors).toEqual([]);
+});
+
 test('MakeHuman pose library applies bounded limb adaptations', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   await openClean(page, 'male');

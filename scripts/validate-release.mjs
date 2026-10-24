@@ -62,7 +62,7 @@ runInNewContext(readFileSync('anatomy-targets.js','utf8'), generatedScope);
 runInNewContext(readFileSync('pose-presets.js','utf8'), generatedScope);
 const appearanceCatalog = generatedScope.window.INK_ATLAS_APPEARANCE_CATALOG || [], anatomyTargets=generatedScope.window.INK_ATLAS_ANATOMY_LIBRARY||[], posePresets = generatedScope.window.INK_ATLAS_POSE_PRESETS || [];
 if (appearanceCatalog.length < 360) fail(`Expanded appearance library is unexpectedly small: ${appearanceCatalog.length}`);
-if (appearanceCatalog.filter(item=>item.bound).length < 360) fail('Too many expanded appearance assets lack MakeHuman surface bindings');
+if (appearanceCatalog.some(item=>!item.bound)) fail('Every bundled MakeHuman appearance asset must retain its surface bindings');
 if (appearanceCatalog.filter(item=>item.textured).length < 340) fail('Expanded appearance materials or textures are unexpectedly incomplete');
 if (anatomyTargets.length < 28) fail(`Anatomy target library is unexpectedly small: ${anatomyTargets.length}`);
 if (posePresets.length < 110) fail(`MakeHuman pose library is unexpectedly small: ${posePresets.length}`);
@@ -70,8 +70,10 @@ if(generatedScope.window.INK_ATLAS_BASE_VERTEX_MAPS?.count!==19158)fail('Canonic
 let lazyBytes = 0, textureBytes=0;
 for (const item of appearanceCatalog) {
   if (!item.id || !item.name || !item.category || !item.author || !item.license || !item.file) fail(`Incomplete appearance catalog item: ${JSON.stringify(item)}`);
-  const stats=statSync(item.file,{throwIfNoEntry:false});if(!stats?.isFile())fail(`Missing lazy appearance payload: ${item.file}`);lazyBytes+=stats.size;if(stats.size>15_000_000)fail(`Appearance payload exceeds per-item budget: ${item.file}`);
-  if(item.textured){const source=readFileSync(item.file,'utf8'),texture=source.match(/"texture":"([^"]+)"/)?.[1],textureStats=texture&&statSync(texture,{throwIfNoEntry:false});if(!textureStats?.isFile())fail(`Missing appearance texture for ${item.id}`);textureBytes+=textureStats.size;if(textureStats.size>2_000_000)fail(`Appearance texture exceeds per-item budget: ${texture}`);}
+  const stats=statSync(item.file,{throwIfNoEntry:false});if(!stats?.isFile())fail(`Missing lazy appearance payload: ${item.file}`);lazyBytes+=stats.size;if(stats.size>15_000_000)fail(`Appearance payload exceeds per-item budget: ${item.file}`);const source=readFileSync(item.file,'utf8');
+  for(const field of ['"bindWeightType":"q16x2"','"bindOffsetType":"q8"','"bindScaleRefs"'])if(!source.includes(field))fail(`Appearance payload omits authored MakeHuman binding data (${field}): ${item.file}`);
+  if(item.hiddenBodyVertices>0&&!source.includes('"deleteVerts"'))fail(`Appearance payload omits its MakeHuman body mask: ${item.file}`);
+  if(item.textured){const texture=source.match(/"texture":"([^"]+)"/)?.[1],textureStats=texture&&statSync(texture,{throwIfNoEntry:false});if(!textureStats?.isFile())fail(`Missing appearance texture for ${item.id}`);textureBytes+=textureStats.size;if(textureStats.size>2_000_000)fail(`Appearance texture exceeds per-item budget: ${texture}`);}
 }
 if(lazyBytes>130_000_000)fail(`Lazy appearance geometry exceeds release budget: ${lazyBytes} bytes`);
 if(textureBytes>120_000_000)fail(`Lazy appearance textures exceed release budget: ${textureBytes} bytes`);
