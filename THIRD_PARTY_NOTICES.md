@@ -17,7 +17,7 @@ Innerscene identifies the model as adapted from MakeHuman CC0 assets and release
 
 The collection contains both **CC0** and **CC-BY** works. CC-BY author and source records have been retained from the supplied pack metadata and must remain with redistributed builds. The build preserves positions, triangulated faces, UV seams, three-point MakeHuman proxy weights, signed proxy offsets, body-scale references, available `delete_verts` masks and source material parameters. Referenced diffuse images are resized to a maximum dimension of 512 pixels for the web bundle; unreferenced pack files are not redistributed.
 
-`anatomy-targets.js` contains sparse target deltas generated from the supplied CC0 Cheek 01, Ears 01 and Nose 01 target packs. The source archives are not redistributed.
+`anatomy-targets.js` contains sparse target deltas and quantized hm08 source coordinates generated from the supplied CC0 Cheek 01, Ears 01 and Nose 01 target packs. These coordinates support bounded high-resolution anatomical fields in the application; the source archives and base mesh are not redistributed.
 
 `base-vertex-map.js` was generated against the official CC0 hm08 [`base.obj`](https://github.com/makehumancommunity/makehuman/blob/a8bc2d54ff0ac92e78ff71431b1023eda42bf482/makehuman/data/3dobjs/base.obj) at commit `a8bc2d54ff0ac92e78ff71431b1023eda42bf482`. It contains only index maps, not a redistributed copy of the source mesh.
 

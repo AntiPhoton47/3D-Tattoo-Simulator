@@ -65,6 +65,7 @@ if (appearanceCatalog.length < 360) fail(`Expanded appearance library is unexpec
 if (appearanceCatalog.some(item=>!item.bound)) fail('Every bundled MakeHuman appearance asset must retain its surface bindings');
 if (appearanceCatalog.filter(item=>item.textured).length < 340) fail('Expanded appearance materials or textures are unexpectedly incomplete');
 if (anatomyTargets.length < 28) fail(`Anatomy target library is unexpectedly small: ${anatomyTargets.length}`);
+if(anatomyTargets.some(item=>item.positionType!=='q16'||!item.positions||item.positionMin?.length!==3||item.positionScale?.length!==3))fail('Anatomy targets must retain normalized hm08 source positions for reproducible surface transfer');
 if (posePresets.length < 110) fail(`MakeHuman pose library is unexpectedly small: ${posePresets.length}`);
 if(generatedScope.window.INK_ATLAS_BASE_VERTEX_MAPS?.count!==19158)fail('Canonical hm08 vertex map is missing or incomplete');
 let lazyBytes = 0, textureBytes=0;
