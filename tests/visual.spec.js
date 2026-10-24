@@ -82,6 +82,59 @@ test('wardrobe, hair and facial hair controls render and persist', async ({ page
   expect(errors).toEqual([]);
 });
 
+test('downloaded MakeHuman assets deform with the body and persist', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await openClean(page, 'male');
+  await expect(page.locator('#v7TopAsset option')).toHaveCount(80);
+  await page.locator('#v7TopAsset').selectOption('asset:shirts01_cc0_toigo_keyhole_tank_top');
+  await expect.poll(() => page.evaluate(() => window.INK_ATLAS_MEASUREMENTS.equippedAssets?.includes('shirts01_cc0_toigo_keyhole_tank_top'))).toBe(true);
+  await page.locator('#abductL').fill('125');
+  await page.locator('#abductR').fill('125');
+  await page.waitForTimeout(300);
+  const stats = await page.evaluate(() => window.InkAtlasV7Bridge.appearanceAssetStats('shirts01_cc0_toigo_keyhole_tank_top'));
+  expect(stats.finite).toBe(true);
+  expect(stats.vertices).toBe(823);
+  expect(stats.min[0]).toBeGreaterThan(-3);
+  expect(stats.max[0]).toBeLessThan(3);
+  expect(stats.min[1]).toBeGreaterThan(-3.5);
+  expect(stats.max[1]).toBeLessThan(3.6);
+  const saved=await page.evaluate(() => JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1')).bodySettings.equippedAssets);
+  expect(saved).toContain('shirts01_cc0_toigo_keyhole_tank_top');
+  expect(errors).toEqual([]);
+});
+
+test('face, hair and grooming details use the shared adaptive asset path', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));await openClean(page,'male');
+  await page.locator('#v7HairStyle').selectOption('asset:hair01_cc0_learning_anime_hair');
+  await page.locator('#v7FacialHair').selectOption('asset:bodyparts05_cc0_wdg_scruffy_beard');
+  await page.locator('#v7EyebrowStyle').selectOption('asset:eyebrows01_cc0_mindfront_eyebrows_01');
+  await page.locator('#v7EyelashStyle').selectOption('asset:eyelashes01_cc0_mindfront_eyelashes_01');
+  await page.locator('#v7EyeStyle').selectOption('asset:makehuman_system_assets_cc0_high_poly');
+  await page.locator('#v7FingerNailStyle').selectOption('asset:bodyparts04_cc0_wolgade_female_fingernails');
+  await page.locator('#v7ToeNailStyle').selectOption({index:1});
+  await page.locator('#v7NoseShape').selectOption({index:1});
+  await page.locator('[data-measure="chestCm"]').fill('118');
+  await page.locator('[data-measure="shoulderCm"]').fill('54');
+  await page.waitForTimeout(450);
+  for(const id of ['hair01_cc0_learning_anime_hair','bodyparts05_cc0_wdg_scruffy_beard','makehuman_system_assets_cc0_high_poly']){const stats=await page.evaluate(id=>window.InkAtlasV7Bridge.appearanceAssetStats(id),id);expect(stats?.finite).toBe(true);}
+  await page.screenshot({path:testInfo.outputPath('adaptive-grooming-render.png')});expect(errors).toEqual([]);
+});
+
+test('MakeHuman pose library applies bounded limb adaptations', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  await openClean(page, 'male');
+  await expect(page.locator('#v7PoseLibrary option')).toHaveCount(14);
+  await page.locator('#v7PoseLibrary').selectOption('poses04_cc0_spreadcore_arms_up_pose_001');
+  await page.locator('#v7ApplyPoseLibrary').click();
+  await expect(page.locator('#abductL')).toHaveValue('127');
+  await expect(page.locator('#abductR')).toHaveValue('127');
+  await expect(page.locator('#elbowL')).toHaveValue('6');
+  expect(await page.evaluate(() => Object.values(pose).every(Number.isFinite))).toBe(true);
+});
+
 test('body model switching and direct-file mode both load', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   await page.goto('/');

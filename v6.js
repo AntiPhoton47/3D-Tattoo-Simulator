@@ -17,14 +17,19 @@
   const bodyDefaults = selectedBodyModel === 'female'
     ? { heightCm: 165, chestCm: 91, waistCm: 74, hipsCm: 99, bicepsCm: 28, thighsCm: 58, shoulderCm: 39, breastSize: 50 }
     : { heightCm: 178, chestCm: 96, waistCm: 82, hipsCm: 96, bicepsCm: 32, thighsCm: 56, shoulderCm: 44, breastSize: 50 };
-  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, modelType: selectedBodyModel, outfit: selectedBodyModel === 'female' ? 'sport' : 'none', outfitColor: '#2e4551', outfitAccent: '#d0a36f', shoes: 'none', socks: 'none', gloves: 'none', hat: 'none', eyewear: 'none', hairStyle: 'none', hairColor: '#35261f', facialHair: 'none', facialHairColor: '#35261f', clothingXRay: false, renderQuality: 'auto', ...bodyDefaults };
+  const appearanceCatalog = Array.isArray(window.INK_ATLAS_APPEARANCE_CATALOG) ? window.INK_ATLAS_APPEARANCE_CATALOG : [];
+  const appearanceById = new Map(appearanceCatalog.map(item => [item.id, item]));
+  const defaultEyeId=appearanceById.has('makehuman_system_assets_cc0_high_poly')?'makehuman_system_assets_cc0_high_poly':'none';
+  window.INK_ATLAS_ASSET_PAYLOADS = window.INK_ATLAS_ASSET_PAYLOADS || {};
+  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, modelType: selectedBodyModel, outfit: selectedBodyModel === 'female' ? 'sport' : 'none', outfitColor: '#2e4551', outfitAccent: '#d0a36f', shoes: 'none', socks: 'none', gloves: 'none', hat: 'none', eyewear: 'none', hairStyle: 'none', hairColor: '#35261f', facialHair: 'none', facialHairColor: '#35261f', eyeStyle:defaultEyeId, eyebrowStyle:'none', eyelashStyle:'none', fingerNailStyle:'none', toeNailStyle:'none', noseShape:'none', earShape:'none', cheekShape:'none', eyeColor:'#514c48', clothingXRay: false, renderQuality: 'auto', equippedAssets: defaultEyeId==='none'?[]:[defaultEyeId], ...bodyDefaults };
   let needsSurfaceCoordinateMigration = true;
   try {
     const storedLayout = JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1') || '{}'), prior = storedLayout.bodySettings;
     needsSurfaceCoordinateMigration = Number(storedLayout.version || 0) < 6.3;
     if (prior && ['balanced', 'athletic', 'broad', 'lean'].includes(prior.profile)) bodySettings.profile = prior.profile;
     if (prior && Number.isFinite(prior.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, prior.heightCm));
-    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize', 'outfit', 'outfitColor', 'outfitAccent', 'shoes', 'socks', 'gloves', 'hat', 'eyewear', 'hairStyle', 'hairColor', 'facialHair', 'facialHairColor', 'clothingXRay', 'renderQuality']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
+    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize', 'outfit', 'outfitColor', 'outfitAccent', 'shoes', 'socks', 'gloves', 'hat', 'eyewear', 'hairStyle', 'hairColor', 'facialHair', 'facialHairColor', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
+    if (Array.isArray(prior?.equippedAssets)) bodySettings.equippedAssets = prior.equippedAssets.filter(id => appearanceById.has(id)).slice(0, 20);
   } catch (_) {}
   bodySettings.modelType = selectedBodyModel;
   const restoredBreastSize = Number(bodySettings.breastSize);
@@ -359,6 +364,13 @@
       if (bodySettings.eyewear !== 'none' && v >= .39 && v <= .63) covered = true;
       if (bodySettings.modelType === 'male' && bodySettings.facialHair !== 'none' && v <= .43) covered = true;
     }
+    const equippedCategories = new Set((bodySettings.equippedAssets || []).map(id => appearanceById.get(id)?.category).filter(Boolean));
+    if (equippedCategories.has('Dresses') && (partId === 'torso' || partId === 'pelvis' || partId.endsWith('_thigh'))) covered = true;
+    if ((equippedCategories.has('Tops') || equippedCategories.has('Underlayers')) && (partId === 'torso' || partId === 'pelvis' || partId.endsWith('_upper_arm'))) covered = true;
+    if ((equippedCategories.has('Bottoms') || equippedCategories.has('Skirts') || equippedCategories.has('Underlayers')) && (partId === 'pelvis' || partId.endsWith('_thigh') || partId.endsWith('_calf'))) covered = true;
+    if (equippedCategories.has('Shoes') && (partId.endsWith('_foot') || (partId.endsWith('_calf') && v < .38))) covered = true;
+    if (equippedCategories.has('Gloves') && (partId.endsWith('_hand') || (partId.endsWith('_forearm') && v < .58))) covered = true;
+    if (partId === 'head' && ['Hair','Hats','Eyewear'].some(category => equippedCategories.has(category))) covered = true;
     return covered;
   }
 
@@ -466,30 +478,66 @@
     gl.disable(gl.POLYGON_OFFSET_FILL);
   }
 
-  // A compact subset of the official MakeHuman CC0 asset packs supplies true
-  // silhouette geometry for the most visible wardrobe and grooming choices.
-  // These meshes are deliberately kept local and texture-free: colour remains
-  // user-controlled and the static app still works offline and from file://.
+  // MakeHuman wardrobe and grooming meshes remain local, retain their source
+  // materials, and are loaded only when selected.
   let meshAppearanceProgram = null;
   const meshAppearanceCache = new Map();
+  const appearanceLoadPromises = new Map();
+  const baseVertexMapCache = new Map();
   function typedArrayFromBase64(encoded, Type) {
     const binary = atob(encoded), bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     return new Type(bytes.buffer);
   }
+  function baseVertexMap(){const key=bodySettings.modelType;if(!baseVertexMapCache.has(key)){const encoded=window.INK_ATLAS_BASE_VERTEX_MAPS?.[key];baseVertexMapCache.set(key,encoded?typedArrayFromBase64(encoded,Uint32Array):null);}return baseVertexMapCache.get(key);}
+  window.INK_ATLAS_ACTIVE_BASE_VERTEX_MAP=baseVertexMap();
+  window.INK_ATLAS_ANATOMY_DECODED=new Map((window.INK_ATLAS_ANATOMY_LIBRARY||[]).map(item=>[item.id,{...item,indices:typedArrayFromBase64(item.indices,Uint16Array),deltas:typedArrayFromBase64(item.deltas,Int16Array)}]));
+  function loadAppearanceAsset(id) {
+    if (window.INK_ATLAS_APPEARANCE_ASSETS?.[id] || window.INK_ATLAS_ASSET_PAYLOADS?.[id]) return Promise.resolve(id);
+    if (appearanceLoadPromises.has(id)) return appearanceLoadPromises.get(id);
+    const item = appearanceById.get(id); if (!item) return Promise.reject(new Error('Unknown appearance asset'));
+    const promise = new Promise((resolve, reject) => {
+      const script = document.createElement('script'); script.src = `${item.file}?v=1.3.0`; script.async = true;
+      script.onload = () => { requestDraw(); resolve(id); };
+      script.onerror = () => { appearanceLoadPromises.delete(id); reject(new Error(`Could not load ${item.name}`)); };
+      document.head.append(script);
+    });
+    appearanceLoadPromises.set(id, promise); return promise;
+  }
   function ensureMeshAppearanceProgram() {
     if (meshAppearanceProgram || software) return;
-    const vertex = `attribute vec3 aPosition;attribute vec3 aNormal;uniform mat4 uViewProjection;varying vec3 vNormal;varying vec3 vPosition;void main(){vNormal=aNormal;vPosition=aPosition;gl_Position=uViewProjection*vec4(aPosition,1.);}`;
-    const fragment = `precision mediump float;uniform vec4 uColour;uniform vec3 uAccent;uniform float uFabric;varying vec3 vNormal;varying vec3 vPosition;void main(){vec3 n=normalize(vNormal);float key=max(0.,dot(n,normalize(vec3(-.55,.82,1.1))));float fill=max(0.,dot(n,normalize(vec3(.72,.22,.40))));float light=.50+.39*key+.11*fill;float grain=uFabric*.018*sin(vPosition.x*155.)*sin(vPosition.y*190.);vec3 colour=mix(uAccent,uColour.rgb,.90+.06*key);gl_FragColor=vec4(colour*(light+grain)+.018,uColour.a);}`;
+    const vertex = `attribute vec3 aPosition;attribute vec3 aNormal;attribute vec2 aUV;uniform mat4 uViewProjection;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){vNormal=aNormal;vPosition=aPosition;vUV=aUV;gl_Position=uViewProjection*vec4(aPosition,1.);}`;
+    const fragment = `precision mediump float;uniform vec4 uColour;uniform vec3 uAccent;uniform float uFabric;uniform float uUseTexture;uniform float uShininess;uniform float uEye;uniform sampler2D uTexture;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){vec3 n=normalize(vNormal);float key=max(0.,dot(n,normalize(vec3(-.55,.82,1.1))));float fill=max(0.,dot(n,normalize(vec3(.72,.22,.40))));float light=.50+.39*key+.11*fill;float grain=uFabric*.018*sin(vPosition.x*155.)*sin(vPosition.y*190.);vec4 sample=texture2D(uTexture,vUV);float luma=dot(sample.rgb,vec3(.299,.587,.114)),iris=(1.-smoothstep(.28,.70,luma))*uEye;vec3 textured=mix(sample.rgb,sample.rgb*(uAccent*1.8+.18),iris*.72),plain=mix(uAccent,uColour.rgb,.90+.06*key),colour=mix(plain,textured*uColour.rgb,uUseTexture);float spec=pow(max(0.,dot(reflect(-normalize(vec3(-.55,.82,1.1)),n),normalize(vec3(0.,0.,1.)))),mix(8.,72.,uShininess))*.18*uShininess;float alpha=uColour.a*mix(1.,sample.a,uUseTexture);if(alpha<.035)discard;gl_FragColor=vec4(colour*(light+grain)+spec+.018,alpha);}`;
     const instance = gl.createProgram(); gl.attachShader(instance, shader(gl.VERTEX_SHADER, vertex)); gl.attachShader(instance, shader(gl.FRAGMENT_SHADER, fragment)); gl.linkProgram(instance);
-    meshAppearanceProgram = { instance, pos:gl.getAttribLocation(instance,'aPosition'), norm:gl.getAttribLocation(instance,'aNormal'), vp:gl.getUniformLocation(instance,'uViewProjection'), colour:gl.getUniformLocation(instance,'uColour'), accent:gl.getUniformLocation(instance,'uAccent'), fabric:gl.getUniformLocation(instance,'uFabric') };
+    meshAppearanceProgram = { instance, pos:gl.getAttribLocation(instance,'aPosition'), norm:gl.getAttribLocation(instance,'aNormal'), uv:gl.getAttribLocation(instance,'aUV'), vp:gl.getUniformLocation(instance,'uViewProjection'), colour:gl.getUniformLocation(instance,'uColour'), accent:gl.getUniformLocation(instance,'uAccent'), fabric:gl.getUniformLocation(instance,'uFabric'), useTexture:gl.getUniformLocation(instance,'uUseTexture'), shininess:gl.getUniformLocation(instance,'uShininess'), eye:gl.getUniformLocation(instance,'uEye'), texture:gl.getUniformLocation(instance,'uTexture') };
   }
   function ensureMeshAppearanceAsset(id) {
     if (meshAppearanceCache.has(id)) return meshAppearanceCache.get(id);
-    const raw = window.INK_ATLAS_APPEARANCE_ASSETS?.[id]; if (!raw || software) return null;
-    const restPositions = typedArrayFromBase64(raw.positions, Float32Array), indices = typedArrayFromBase64(raw.indices, raw.indexType === 'u32' ? Uint32Array : Uint16Array);
-    const mesh = { id, restPositions, positions:restPositions.slice(), normals:new Float32Array(restPositions.length), indices, count:indices.length, indexType:indices instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, pb:gl.createBuffer(), nb:gl.createBuffer(), ib:gl.createBuffer() };
-    recomputeNormals(mesh); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);meshAppearanceCache.set(id,mesh);return mesh;
+    const raw = window.INK_ATLAS_APPEARANCE_ASSETS?.[id] || window.INK_ATLAS_ASSET_PAYLOADS?.[id]; if (!raw || software) return null;
+    let restPositions;
+    if (raw.positionType === 'q16') {
+      const quantized = typedArrayFromBase64(raw.positions, Uint16Array); restPositions = new Float32Array(quantized.length);
+      for (let i = 0; i < quantized.length; i++) restPositions[i] = raw.positionMin[i % 3] + quantized[i] * raw.positionScale[i % 3];
+    } else restPositions = typedArrayFromBase64(raw.positions, Float32Array);
+    const catalog=appearanceById.get(id);if(catalog?.category==='Eyes'){for(let i=0;i<restPositions.length;i+=3){const centreX=restPositions[i]<0?-.112:.112,centreY=2.985,centreZ=.108;restPositions[i]=centreX+(restPositions[i]-centreX)*.72;restPositions[i+1]=centreY+(restPositions[i+1]-centreY)*.48;restPositions[i+2]=centreZ+(restPositions[i+2]-centreZ)*.70-.040;}}
+    if(catalog?.category==='Facial hair'){let maxY=-Infinity;for(let i=1;i<restPositions.length;i+=3)maxY=Math.max(maxY,restPositions[i]);const targetMax=/moustache/i.test(catalog.name)?2.82:2.93,shift=Math.min(0,targetMax-maxY);for(let i=1;i<restPositions.length;i+=3)restPositions[i]+=shift;}
+    const indices = typedArrayFromBase64(raw.indices, raw.indexType === 'u32' ? Uint32Array : Uint16Array);
+    let uvs=new Float32Array(restPositions.length/3*2);if(raw.uvs){const encodedUV=typedArrayFromBase64(raw.uvs,Uint16Array);for(let i=0;i<encodedUV.length;i++)uvs[i]=encodedUV[i]/65535;}
+    const mesh = { id, catalog, material:raw.material||{}, textureURL:raw.texture||'', textureReady:false, restPositions, positions:restPositions.slice(), normals:new Float32Array(restPositions.length), uvs, indices, bindIndices:raw.bindIndices?typedArrayFromBase64(raw.bindIndices,Uint16Array):null, bindWeights:raw.bindWeights?typedArrayFromBase64(raw.bindWeights,Uint8Array):null, bindRig:null, bindOffsets:null, count:indices.length, indexType:indices instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, pb:gl.createBuffer(), nb:gl.createBuffer(), ub:gl.createBuffer(), ib:gl.createBuffer(), texture:gl.createTexture() };
+    recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.ub);gl.bufferData(gl.ARRAY_BUFFER,mesh.uvs,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,255,255,255]));
+    if(mesh.textureURL){const image=new Image();image.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);mesh.textureReady=true;requestDraw();};image.src=mesh.textureURL;}
+    meshAppearanceCache.set(id,mesh);return mesh;
+  }
+  function prepareSurfaceBindings(mesh) {
+    if (!importedRig || !mesh.bindIndices || !mesh.bindWeights || !importedRig.neutralPoint) return false;
+    if (mesh.bindRig === importedRig && mesh.bindOffsets) return true;
+    const baseMap=baseVertexMap();if(!baseMap)return false;
+    const count=mesh.restPositions.length/3,offsets=new Float32Array(count*3);
+    for(let vertex=0;vertex<count;vertex++){
+      const at=vertex*3,canonical=[mesh.bindIndices[at],mesh.bindIndices[at+1],mesh.bindIndices[at+2]];if(canonical.some(index=>index>=baseMap.length))return false;const ids=canonical.map(index=>baseMap[index]),weights=[mesh.bindWeights[at]/255,mesh.bindWeights[at+1]/255,mesh.bindWeights[at+2]/255];
+      const points=ids.map(index=>importedRig.neutralPoint(index)),anchor=[0,0,0];for(let p=0;p<3;p++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[p][axis]*weights[p];for(let axis=0;axis<3;axis++)offsets[at+axis]=mesh.restPositions[at+axis]-anchor[axis];
+    }
+    mesh.bindRig=importedRig;mesh.bindOffsets=offsets;return true;
   }
   function blendPoint(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
   function transformAppearancePoint(id, point) {
@@ -510,7 +558,13 @@
     const heightScale=clamp((Number(bodySettings.heightCm)||178)/178,.78,1.22);p[1]=(p[1]+3.41)*heightScale-3.41;return p;
   }
   function updateMeshAppearanceAsset(mesh) {
-    for(let i=0;i<mesh.restPositions.length;i+=3){const transformed=transformAppearancePoint(mesh.id,[mesh.restPositions[i],mesh.restPositions[i+1],mesh.restPositions[i+2]]);mesh.positions.set(transformed,i);}
+    if(prepareSurfaceBindings(mesh)){
+      const baseMap=baseVertexMap();
+      for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){
+        const at=vertex*3,ids=[baseMap[mesh.bindIndices[at]],baseMap[mesh.bindIndices[at+1]],baseMap[mesh.bindIndices[at+2]]],weights=[mesh.bindWeights[at]/255,mesh.bindWeights[at+1]/255,mesh.bindWeights[at+2]/255],points=ids.map(index=>importedRig.worldPoint(index)),anchor=[0,0,0];
+        for(let p=0;p<3;p++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[p][axis]*weights[p];for(let axis=0;axis<3;axis++)mesh.positions[at+axis]=anchor[axis]+mesh.bindOffsets[at+axis];
+      }
+    }else for(let i=0;i<mesh.restPositions.length;i+=3){const transformed=transformAppearancePoint(mesh.id,[mesh.restPositions[i],mesh.restPositions[i+1],mesh.restPositions[i+2]]);mesh.positions.set(transformed,i);}
     recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);
   }
   function activeMeshAppearanceAssets(){
@@ -522,11 +576,12 @@
     if(bodySettings.hat==='cap')result.push({id:'cap',colour:bodySettings.outfitColor,fabric:1});
     if(bodySettings.modelType==='male'&&bodySettings.facialHair==='full')result.push({id:'beard_full',colour:bodySettings.facialHairColor,fabric:0});
     if(bodySettings.modelType==='male'&&bodySettings.facialHair==='moustache')result.push({id:'moustache',colour:bodySettings.facialHairColor,fabric:0});
+    for(const id of bodySettings.equippedAssets||[]){const item=appearanceById.get(id);if(!item)continue;const hair=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(item.category),dark=['Eyewear'].includes(item.category),eyes=item.category==='Eyes';result.push({id,colour:eyes?(bodySettings.eyeColor||'#514c48'):hair?(bodySettings.hairColor||'#35261f'):dark?'#20262d':bodySettings.outfitColor,fabric:hair?0:.85,category:item.category});}
     return result;
   }
   function renderMeshAppearanceAssets(){
-    if(software)return;const active=activeMeshAppearanceAssets();if(!active.length)return;ensureMeshAppearanceProgram();const pgr=meshAppearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);
-    for(const entry of active){const mesh=ensureMeshAppearanceAsset(entry.id);if(!mesh)continue;updateMeshAppearanceAsset(mesh);const colour=colour4(entry.colour||'#2e4551'),accent=colour4(bodySettings.outfitAccent||'#d0a36f');gl.uniform4fv(pgr.colour,colour);gl.uniform3fv(pgr.accent,accent.slice(0,3));gl.uniform1f(pgr.fabric,entry.fabric);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType,0);}
+    if(software)return;const active=activeMeshAppearanceAssets();if(!active.length)return;ensureMeshAppearanceProgram();const pgr=meshAppearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    for(const entry of active){const mesh=ensureMeshAppearanceAsset(entry.id);if(!mesh)continue;updateMeshAppearanceAsset(mesh);const eyes=entry.category==='Eyes',source=eyes?[1,1,1]:mesh.material.diffuseColor,colour=source?.length>=3?[source[0],source[1],source[2],Number.isFinite(mesh.material.opacity)?mesh.material.opacity:1]:colour4(entry.colour||'#2e4551'),accent=eyes?colour4(bodySettings.eyeColor||'#514c48'):colour4(bodySettings.outfitAccent||'#d0a36f');gl.uniform4fv(pgr.colour,colour);gl.uniform3fv(pgr.accent,accent.slice(0,3));gl.uniform1f(pgr.fabric,entry.fabric);gl.uniform1f(pgr.useTexture,mesh.textureReady?1:0);gl.uniform1f(pgr.shininess,clamp(Number(mesh.material.shininess)||0,0,1));gl.uniform1f(pgr.eye,eyes?1:0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.uniform1i(pgr.texture,0);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.ub);gl.vertexAttribPointer(pgr.uv,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.uv);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType,0);}gl.disable(gl.BLEND);
   }
 
   refreshTexture = function refreshTextureV6(p) {
@@ -1014,7 +1069,9 @@
         if (Number.isFinite(imported.bodySettings.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, imported.bodySettings.heightCm));
         for (const key of ['chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize']) if (Number.isFinite(imported.bodySettings[key])) bodySettings[key] = imported.bodySettings[key];
         { const importedBreastSize=Number(bodySettings.breastSize); bodySettings.breastSize=Number.isFinite(importedBreastSize)?Math.max(0,Math.min(200,importedBreastSize)):50; }
-        for (const key of ['outfit', 'outfitColor', 'outfitAccent', 'shoes', 'socks', 'gloves', 'hat', 'eyewear', 'hairStyle', 'hairColor', 'facialHair', 'facialHairColor', 'clothingXRay', 'renderQuality']) if (imported.bodySettings[key] !== undefined) bodySettings[key] = imported.bodySettings[key];
+        for (const key of ['outfit', 'outfitColor', 'outfitAccent', 'shoes', 'socks', 'gloves', 'hat', 'eyewear', 'hairStyle', 'hairColor', 'facialHair', 'facialHairColor', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (imported.bodySettings[key] !== undefined) bodySettings[key] = imported.bodySettings[key];
+        bodySettings.equippedAssets = Array.isArray(imported.bodySettings.equippedAssets) ? imported.bodySettings.equippedAssets.filter(id => appearanceById.has(id)).slice(0,20) : [];
+        bodySettings.equippedAssets.forEach(id => loadAppearanceAsset(id).catch(error => console.warn(error)));
         window.INK_ATLAS_BODY_PROFILE = bodySettings.profile;
         if ($('bodyProfile')) $('bodyProfile').value = bodySettings.profile;
         if ($('bodyHeight')) $('bodyHeight').value = bodySettings.heightCm;
@@ -1292,8 +1349,18 @@
   }
   renderLibrary();
   updateUI();
+  async function equipAppearanceAsset(id) {
+    const item=appearanceById.get(id);if(!item)throw new Error('Unknown MakeHuman asset');
+    await loadAppearanceAsset(id);
+    const multi=new Set(['Body accessories','Underlayers']);
+    bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id&&(multi.has(item.category)||appearanceById.get(current)?.category!==item.category));
+    bodySettings.equippedAssets.push(id);parts.forEach(part=>part.dirty=true);requestDraw();return item;
+  }
+  function removeAppearanceAsset(id){bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id);parts.forEach(part=>part.dirty=true);requestDraw();}
+  function appearanceAssetStats(id){const mesh=meshAppearanceCache.get(id);if(!mesh)return null;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(let i=0;i<mesh.positions.length;i+=3)for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],mesh.positions[i+axis]);max[axis]=Math.max(max[axis],mesh.positions[i+axis]);}return {vertices:mesh.positions.length/3,min,max,finite:[...min,...max].every(Number.isFinite)};}
   window.InkAtlasV7Bridge = {
-    bodySettings, measureTattooDistortion, decalMeshes, focusBodyRegion,
+    bodySettings, appearanceCatalog, measureTattooDistortion, decalMeshes, focusBodyRegion,
+    equipAppearanceAsset, removeAppearanceAsset, appearanceAssetStats, isAppearanceAssetEquipped:id=>(bodySettings.equippedAssets||[]).includes(id),
     resetAnalysisBaselines: () => { for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; },
     markAllDirty: () => { parts.forEach(part => part.dirty = true); requestDraw(); },
     updateClothing: () => { parts.forEach(part => part.dirty = true); requestDraw(); },
@@ -1304,5 +1371,6 @@
       requestDraw();
     }
   };
+  bodySettings.equippedAssets.forEach(id => loadAppearanceAsset(id).catch(error => console.warn(error)));
   loadBundledModel();
 })();
