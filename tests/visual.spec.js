@@ -24,12 +24,20 @@ test('desktop studio remains collision-free', async ({ page }, testInfo) => {
   expect(errors).toEqual([]);
 });
 
-test('feminine model always starts covered', async ({ page }, testInfo) => {
+test('feminine model supports covered and non-explicit unclothed planning', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   await openClean(page, 'female');
   await expect(page.locator('#bodyModelType')).toHaveValue('female');
   await expect(page.locator('#v7Outfit')).toHaveValue('sport');
-  await expect(page.locator('#v7Outfit option[value="none"]')).toHaveCount(0);
+  await expect(page.locator('#v7Outfit option[value="none"]')).toHaveCount(1);
+  await page.locator('#v7Outfit').selectOption('none');
+  await expect(page.locator('#v7Outfit')).toHaveValue('none');
+  await page.locator('#v7BreastSize').fill('0');
+  expect(await page.evaluate(() => window.INK_ATLAS_MEASUREMENTS.breastSize)).toBe(0);
+  await page.locator('#v7BreastSize').fill('200');
+  await expect(page.locator('#v7BreastSizeOut')).toHaveValue('200');
+  expect(await page.evaluate(() => window.INK_ATLAS_MEASUREMENTS.breastSize)).toBe(200);
+  await expect(page.locator('#glCanvas')).toHaveScreenshot('feminine-max-volume.png', { maxDiffPixelRatio: .10 });
   await page.screenshot({ path: testInfo.outputPath('feminine-covered-render.png') });
   await expect(page).toHaveScreenshot('desktop-feminine-covered.png', { mask: [page.locator('#glCanvas')] });
 });
@@ -40,6 +48,10 @@ test('pose extremes keep the corrected shoulder surface stable', async ({ page }
   page.on('pageerror', error => errors.push(error.message));
   await openClean(page, 'female');
   for (const id of ['#abductL', '#abductR']) await page.locator(id).fill('150');
+  await page.locator('#forwardL').fill('58');
+  await page.locator('#forwardR').fill('-35');
+  await page.locator('#twistL').fill('45');
+  await page.locator('#twistR').fill('-45');
   for (const id of ['#elbowL', '#elbowR']) await page.locator(id).fill('90');
   await page.locator('#v7Outfit').selectOption('tee_shorts');
   await page.waitForTimeout(250);
@@ -47,6 +59,26 @@ test('pose extremes keep the corrected shoulder surface stable', async ({ page }
   await page.locator('#v7Calibrate').click();
   await expect(page.locator('#v7CalibrationModal')).toBeVisible();
   await page.locator('#v7CalibrationModal .v7-close').click();
+  expect(errors).toEqual([]);
+});
+
+test('wardrobe, hair and facial hair controls render and persist', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await openClean(page, 'male');
+  await page.locator('#v7Outfit').selectOption('jacket_jeans');
+  await page.locator('#v7Shoes').selectOption('boots');
+  await page.locator('#v7Socks').selectOption('crew');
+  await page.locator('#v7Gloves').selectOption('long');
+  await page.locator('#v7Hat').selectOption('cap');
+  await page.locator('#v7Eyewear').selectOption('square');
+  await page.locator('#v7HairStyle').selectOption('crop');
+  await page.locator('#v7FacialHair').selectOption('full');
+  await page.waitForTimeout(450);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1')).bodySettings);
+  expect(saved).toMatchObject({outfit:'jacket_jeans',shoes:'boots',socks:'crew',gloves:'long',hat:'cap',eyewear:'square',hairStyle:'crop',facialHair:'full'});
+  await page.screenshot({ path: testInfo.outputPath('styled-model-render.png') });
   expect(errors).toEqual([]);
 });
 

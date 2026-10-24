@@ -44,7 +44,6 @@
     restoring = true;
     tattoos = clone(state.tattoos || []);
     Object.assign(settings, state.body || {});
-    if (settings.modelType === 'female' && settings.outfit === 'none') settings.outfit = 'sport';
     if (settings.modelType && settings.modelType !== window.INK_ATLAS_SELECTED_BODY_MODEL) {
       localStorage.setItem('inkAtlas_body_model', settings.modelType);
       setTimeout(() => location.reload(), 140);
@@ -143,7 +142,7 @@
     persistActiveProject();
     const projects = readJSON(PROJECT_STORE, {}); let index = Object.keys(projects).length + 1, name = `Placement ${index}`;
     while (projects[name]) name = `Placement ${++index}`;
-    ui.projectName = name; tattoos = []; selectedId = null; Object.assign(pose,{leftShoulder:18,rightShoulder:18,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0});
+    ui.projectName = name; tattoos = []; selectedId = null; Object.assign(pose,{leftShoulder:18,rightShoulder:18,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0});
     history = []; historyIndex = -1; applyPose(); bridge.markAllDirty(); updateUI(); saveUI(); recordHistory('New project'); persistActiveProject(); $('v7ProjectName').value = name; $('v7ProjectModal').classList.remove('open');
   }
   function loadProject(name) { const project = readJSON(PROJECT_STORE, {})[name]; if (!project) return; ui.projectName=name; saveUI(); restoreSnapshot(project.current); history=[snapshot('Loaded project')]; historyIndex=0; writeJSON(HISTORY_STORE,history); $('v7ProjectName').value=name; $('v7ProjectModal').classList.remove('open'); toast(`Loaded ${name}`); }
@@ -162,21 +161,26 @@
   function installBodyLab() {
     const left=document.querySelector('.sidebar.left'), placement=Array.from(left.querySelectorAll('.eyebrow')).find(node=>node.textContent.includes('Placement note'));
     const section=document.createElement('details'); section.className='v7-body-lab'; section.open=true;
-    section.innerHTML=`<summary>Body, clothing & appearance <span>local controls</span></summary><div class="v7-body-content">
+    section.innerHTML=`<summary>Body, wardrobe & appearance <span>local controls</span></summary><div class="v7-body-content">
+      <div class="v7-lab-heading"><b>Body form</b><span>smooth bounded morphs</span></div>
       <label>Frame<select id="v7Frame"><option value="balanced">Balanced</option><option value="soft">Soft</option><option value="angular">Angular</option><option value="androgynous">Androgynous</option></select></label>
       ${[['Chest','chestCm',78,125],['Waist','waistCm',62,120],['Hips','hipsCm',78,125],['Biceps','bicepsCm',22,48],['Thighs','thighsCm',40,76],['Shoulders','shoulderCm',34,57]].map(([label,key,min,max])=>`<label>${label}<span><input data-measure="${key}" type="range" min="${min}" max="${max}" value="${settings[key]}"><output>${settings[key]} cm</output></span></label>`).join('')}
+      ${settings.modelType==='female'?`<label>Breast volume<span><input id="v7BreastSize" type="range" min="0" max="200" step="1" value="${settings.breastSize??50}" aria-label="Breast volume"><output id="v7BreastSizeOut">${settings.breastSize??50}</output></span></label>`:''}
       <label>Skin tone<span class="v7-skin-slider"><input id="v7SkinTone" type="range" min="0" max="100" step="1" value="${settings.skinTonePosition}" aria-label="Continuous skin tone"><output id="v7SkinToneOut">Tone ${Math.round(settings.skinTonePosition)}</output></span></label>
-      <div class="v7-clothing"><label>Clothing<select id="v7Outfit"><option value="none">No garment layer</option><option value="sport">Sports top & shorts</option><option value="tee_shorts">T-shirt & shorts</option><option value="tee_leggings">T-shirt & leggings</option><option value="bodysuit">Fitted bodysuit</option></select></label><div class="v7-colour-pair"><label>Fabric<input id="v7OutfitColor" type="color" value="${esc(settings.outfitColor||'#2e4551')}"></label><label>Seam<input id="v7OutfitAccent" type="color" value="${esc(settings.outfitAccent||'#d0a36f')}"></label></div><label class="v7-check"><input id="v7ClothingXRay" type="checkbox" ${settings.clothingXRay?'checked':''}> Show hidden tattoos through clothing</label></div>
+      <div class="v7-clothing"><div class="v7-lab-heading"><b>Wardrobe</b><span>rig-following local layers</span></div><label>Outfit<select id="v7Outfit"><option value="none">No garment layer</option><option value="sport">Sports top & shorts</option><option value="tank_shorts">Tank top & shorts</option><option value="tee_shorts">T-shirt & shorts</option><option value="tee_leggings">T-shirt & leggings</option><option value="bodysuit">Fitted bodysuit</option><option value="hoodie_joggers">Hoodie & joggers</option><option value="fitted_dress">Fitted dress</option><option value="jacket_jeans">Jacket & jeans</option></select></label><div class="v7-style-grid"><label>Shoes<select id="v7Shoes"><option value="none">None</option><option value="sneakers">Sneakers</option><option value="boots">Boots</option><option value="sandals">Sandals</option></select></label><label>Socks<select id="v7Socks"><option value="none">None</option><option value="ankle">Ankle</option><option value="crew">Crew</option><option value="knee">Knee-high</option></select></label><label>Gloves<select id="v7Gloves"><option value="none">None</option><option value="short">Short</option><option value="long">Long</option></select></label><label>Hat<select id="v7Hat"><option value="none">None</option><option value="beanie">Beanie</option><option value="cap">Cap</option><option value="headband">Headband</option></select></label><label>Eyewear<select id="v7Eyewear"><option value="none">None</option><option value="round">Round sunglasses</option><option value="square">Square sunglasses</option><option value="visor">Visor</option></select></label></div><div class="v7-colour-pair"><label>Fabric<input id="v7OutfitColor" type="color" value="${esc(settings.outfitColor||'#2e4551')}"></label><label>Trim<input id="v7OutfitAccent" type="color" value="${esc(settings.outfitAccent||'#d0a36f')}"></label></div><label class="v7-check"><input id="v7ClothingXRay" type="checkbox" ${settings.clothingXRay?'checked':''}> Show hidden tattoos through layers</label></div>
+      <div class="v7-clothing"><div class="v7-lab-heading"><b>Hair & grooming</b><span>procedural, local only</span></div><label>Hairstyle<select id="v7HairStyle"><option value="none">No hair</option><option value="buzz">Buzz cut</option><option value="crop">Short crop</option><option value="bob">Bob</option><option value="curls">Curls</option><option value="long">Long</option><option value="bun">Bun</option></select></label><div class="v7-colour-pair"><label>Hair colour<input id="v7HairColor" type="color" value="${esc(settings.hairColor||'#35261f')}"></label>${settings.modelType==='male'?`<label>Facial hair colour<input id="v7FacialHairColor" type="color" value="${esc(settings.facialHairColor||'#35261f')}"></label>`:''}</div>${settings.modelType==='male'?`<label>Facial hair<select id="v7FacialHair"><option value="none">Clean-shaven</option><option value="stubble">Stubble</option><option value="moustache">Moustache</option><option value="goatee">Goatee</option><option value="full">Full beard</option></select></label>`:''}</div>
       <label>Rendering<select id="v7RenderQuality"><option value="auto">Adaptive · recommended</option><option value="high">High detail</option><option value="battery">Battery saver</option></select></label>
-      <p>Measurements use smooth, bounded anatomical transitions. Clothing is a local garment layer that follows the rig; hidden tattoos remain in the project and can be shown in planning mode.</p></div>`;
+      <p>The unclothed option uses a non-explicit planning surface. Appearance layers follow the rig and stay in this browser; covered tattoos remain saved and can be revealed with planning mode.</p></div>`;
     left.insertBefore(section, placement?.previousElementSibling || null); $('v7Frame').value=settings.frame||'balanced';
     $('v7Frame').onchange=event=>applyBodyChange('frame',event.target.value);
     const outfit=$('v7Outfit'); outfit.value=settings.outfit||'none';
-    if(settings.modelType==='female')outfit.querySelector('[value="none"]')?.remove();
     outfit.onchange=event=>applyBodyChange('outfit',event.target.value);
     $('v7OutfitColor').oninput=event=>applyBodyChange('outfitColor',event.target.value,false); $('v7OutfitColor').onchange=()=>saveLayout(false);
     $('v7OutfitAccent').oninput=event=>applyBodyChange('outfitAccent',event.target.value,false); $('v7OutfitAccent').onchange=()=>saveLayout(false);
     $('v7ClothingXRay').onchange=event=>applyBodyChange('clothingXRay',event.target.checked);
+    for(const [id,key] of [['v7Shoes','shoes'],['v7Socks','socks'],['v7Gloves','gloves'],['v7Hat','hat'],['v7Eyewear','eyewear'],['v7HairStyle','hairStyle'],['v7FacialHair','facialHair']]){const control=$(id);if(control){control.value=settings[key]||'none';control.onchange=event=>applyBodyChange(key,event.target.value);}}
+    for(const [id,key] of [['v7HairColor','hairColor'],['v7FacialHairColor','facialHairColor']]){const control=$(id);if(control){control.oninput=event=>applyBodyChange(key,event.target.value,false);control.onchange=()=>saveLayout(false);}}
+    const breast=$('v7BreastSize');if(breast){breast.oninput=()=>{$('v7BreastSizeOut').value=breast.value;applyBodyChange('breastSize',Number(breast.value),false)};breast.onchange=()=>saveLayout(false);}
     $('v7RenderQuality').value=settings.renderQuality||'auto'; $('v7RenderQuality').onchange=event=>applyBodyChange('renderQuality',event.target.value);
     section.querySelectorAll('[data-measure]').forEach(input=>input.oninput=()=>{ input.nextElementSibling.value=`${input.value} cm`; applyBodyChange(input.dataset.measure,Number(input.value),false); });
     section.querySelectorAll('[data-measure]').forEach(input=>input.onchange=()=>saveLayout(false));
@@ -189,7 +193,7 @@
     settings[key]=value;
     if(key==='skinTone'){
       parts.forEach(part=>part.dirty=true);bridge.markAllDirty();requestDraw();
-    }else if(['outfit','outfitColor','outfitAccent','clothingXRay'].includes(key)){
+    }else if(['outfit','outfitColor','outfitAccent','shoes','socks','gloves','hat','eyewear','hairStyle','hairColor','facialHair','facialHairColor','clothingXRay'].includes(key)){
       bridge.updateClothing?.();
     }else if(key==='renderQuality'){
       bridge.updateRenderQuality?.(value);
@@ -205,7 +209,7 @@
     grid.prepend(panel); panel.querySelectorAll('[data-ik-side]').forEach(button=>button.onclick=()=>{ui.ikSide=button.dataset.ikSide;saveUI();updateIK();});
     const pad=$('v7IkPad'); const move=event=>{const rect=pad.getBoundingClientRect(),x=clamp((event.clientX-rect.left)/rect.width,0,1),y=clamp((event.clientY-rect.top)/rect.height,0,1),side=ui.ikSide; setPose({[side+'Shoulder']:Math.round((1-y)*155),[side+'Elbow']:Math.round((1-x)*130)}); updateIK();};
     pad.onpointerdown=event=>{pad.setPointerCapture(event.pointerId);move(event);}; pad.onpointermove=event=>{if(pad.hasPointerCapture(event.pointerId))move(event);}; pad.onpointerup=()=>saveLayout(false);
-    const presets=document.querySelector('.pose-presets'); if(presets){ presets.insertAdjacentHTML('beforeend','<button class="btn tiny" id="v7ReachBtn">Reach overhead</button><button class="btn tiny" id="v7StrideBtn">Stride</button>'); $('v7ReachBtn').onclick=()=>{setPose({leftShoulder:150,rightShoulder:150,leftElbow:8,rightElbow:8});bridge.focusBodyRegion('full');camDist=Math.min(18.5,Math.max(camDist,16.3*(settings.heightCm/178)));requestDraw();saveLayout(false)}; $('v7StrideBtn').onclick=()=>{setPose({leftShoulder:10,rightShoulder:28,leftElbow:15,rightElbow:25,leftKnee:32,rightKnee:4});saveLayout(false)}; }
+    const presets=document.querySelector('.pose-presets'); if(presets){ presets.insertAdjacentHTML('beforeend','<button class="btn tiny" id="v7ReachBtn">Reach overhead</button><button class="btn tiny" id="v7StrideBtn">Stride</button>'); $('v7ReachBtn').onclick=()=>{setPose({leftShoulder:150,rightShoulder:150,leftShoulderForward:10,rightShoulderForward:10,leftArmTwist:0,rightArmTwist:0,leftElbow:8,rightElbow:8});bridge.focusBodyRegion('full');camDist=Math.min(18.5,Math.max(camDist,16.3*(settings.heightCm/178)));requestDraw();saveLayout(false)}; $('v7StrideBtn').onclick=()=>{setPose({leftShoulder:10,rightShoulder:28,leftShoulderForward:22,rightShoulderForward:-18,leftArmTwist:8,rightArmTwist:-8,leftElbow:15,rightElbow:25,leftKnee:32,rightKnee:4});saveLayout(false)}; }
     updateIK();
   }
   function updateIK(){ const pad=$('v7IkPad'),handle=$('v7IkHandle');if(!pad||!handle)return;const side=ui.ikSide,x=1-clamp(pose[side+'Elbow']/130,0,1),y=1-clamp(pose[side+'Shoulder']/155,0,1);handle.style.left=`${x*100}%`;handle.style.top=`${y*100}%`;document.querySelectorAll('[data-ik-side]').forEach(b=>b.classList.toggle('active',b.dataset.ikSide===side)); }
@@ -239,7 +243,7 @@
   }
   async function runPoseRange(tattoo=tattoos.find(t=>t.id===selectedId)){
     if(!tattoo){toast('Select a tattoo to analyze');return;}
-    const original=clone(pose),neutral={leftShoulder:0,rightShoulder:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0},button=$('v7Analyze'),body=$('v7AnalysisBody');let worst={max:0,percent:0,grade:'good',poseLabel:'neutral'},results=[];
+    const original=clone(pose),neutral={leftShoulder:0,rightShoulder:0,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0},button=$('v7Analyze'),body=$('v7AnalysisBody');let worst={max:0,percent:0,grade:'good',poseLabel:'neutral'},results=[];
     bridge.resetAnalysisBaselines?.();Object.assign(pose,neutral);applyPose();bridge.measureTattooDistortion(tattoo);button?.classList.add('busy');
     for(let index=0;index<JOINT_TESTS.length;index++){
       const joint=JOINT_TESTS[index],angles=[0,Math.round(joint.limit*.25),Math.round(joint.limit*.5),Math.round(joint.limit*.75),joint.limit];let jointWorst={max:0,percent:0,grade:'good',poseLabel:`${joint.label} neutral`};

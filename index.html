@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Ink Atlas 1.1 — 3D Tattoo Placement Simulator</title>
+<title>Ink Atlas 1.2 — 3D Tattoo Placement Simulator</title>
 <meta name="theme-color" content="#111418"/><meta name="description" content="A local-first 3D tattoo placement simulator with pose analysis, colour planning and printable stencils."/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232a221e'/%3E%3Cpath d='M16 5l3.2 7.8L27 16l-7.8 3.2L16 27l-3.2-7.8L5 16l7.8-3.2z' fill='%23ebc9a4'/%3E%3C/svg%3E"/>
@@ -19,14 +19,14 @@
 <header class="top"><div class="brand"><div class="logo" aria-hidden="true">✦</div><div><div class="wordmark">INK<span>ATLAS</span></div><div class="subbrand">PUBLIC RELEASE · LOCAL-FIRST STUDIO</div></div></div><div class="intro">Map artwork, test movement and export a placement study on a calibrated 3D body.</div><div class="topbuttons"><button class="btn ghost" id="resetBtn" title="Return to the front view">Reset view</button><button class="btn" id="importBtn" title="Import an Ink Atlas JSON layout">Import</button><button class="btn" id="exportBtn" title="Export a portable JSON layout">Export</button><button class="btn gold" id="shotBtn" title="Save the current 3D view as a PNG">Capture</button></div></header>
 <div class="layout"><aside class="sidebar left"><div class="eyebrow">Designs</div><h2>Tattoo library</h2><p>Choose a motif or upload your own transparent artwork, then place it directly on the model.</p><div class="field"><input class="search" id="searchInput" placeholder="Search tattoos..." aria-label="Search tattoos" /></div><div class="filter" id="filters"></div><div class="library" id="library"></div><div class="uploadbox"><label for="imageUpload">＋ Add artwork (PNG, JPG, WebP)</label><input type="file" id="imageUpload" accept="image/png,image/jpeg,image/webp,image/svg+xml" multiple></div><div class="separator"></div>
 <div class="eyebrow">3D body model</div><h2 style="font-size:19px">Anatomical body model</h2>
-<p>Choose a masculine or feminine CC0 MakeHuman-derived body, then adjust its proportions and height calibration. Feminine bodies always open with a coverage outfit.</p>
+<p>Choose a masculine or feminine CC0 MakeHuman-derived body, then adjust its proportions, presentation and height calibration. Either model can be shown without a garment layer; intimate anatomy is represented as a smooth planning surface.</p>
 <div class="uploadbox" style="margin:0 0 10px"><label for="bodyModelUpload">＋ Load rigged human GLB model</label><input id="bodyModelUpload" type="file" accept=".glb,model/gltf-binary" /></div>
 <div class="btnrow" style="margin:4px 0 12px"><button class="btn tiny" id="modelStatusBtn">Model info</button></div>
 <div class="detailtxt" id="modelStatus" aria-live="polite" style="margin-bottom:10px;overflow-wrap:anywhere">Preparing the bundled high-definition MakeHuman body…</div>
 <p style="margin:0 0 10px">Bundled sources: <a href="https://www.innerscene.com/tools/library/3d-parts/male-base-mesh-3d-person-rigged-a-pose-380e6d89" target="_blank" rel="noopener noreferrer">masculine body ↗</a> · <a href="https://www.innerscene.com/tools/library/3d-parts/female-base-mesh-3d-person-rigged-a-pose-dba97ed5" target="_blank" rel="noopener noreferrer">feminine body ↗</a> (CC0).</p>
 <div class="detailtxt">Custom model files are not stored. Export the layout before changing bodies.</div>
 <div class="separator"></div><div class="eyebrow">Placement note</div><p style="margin-bottom:0">Use the intended artwork for scale checks, and confirm joint creases and final dimensions with your artist.</p></aside>
-<main class="canvas-wrap" id="canvasWrap"><canvas id="glCanvas" aria-label="Interactive 3D body tattoo planner"></canvas><div class="viewtools"><div><div class="viewheading">3D BODY MAP</div><div class="viewtitle" id="viewTitle">Front · free orbit</div></div><div class="viewopts"><button class="btn tiny" data-view="front">Front</button><button class="btn tiny" data-view="back">Back</button><button class="btn tiny" data-view="left">Left</button><button class="btn tiny" data-view="right">Right</button><button class="btn tiny" data-view="three">¾ view</button><button class="btn tiny" data-view="shoulders">Shoulders</button></div></div><div class="model-note">CC0 MakeHuman-derived body · 163-bone rig · seam-aware tattoo projection. Tattoos remain attached while the pose changes.</div><div class="hint" id="hint" aria-live="polite">Drag model to orbit · Select a motif to place it</div><div class="scene-foot">LOCAL-FIRST · REAL-TIME 3D · 1.1</div></main>
+<main class="canvas-wrap" id="canvasWrap"><canvas id="glCanvas" aria-label="Interactive 3D body tattoo planner"></canvas><div class="viewtools"><div><div class="viewheading">3D BODY MAP</div><div class="viewtitle" id="viewTitle">Front · free orbit</div></div><div class="viewopts"><button class="btn tiny" data-view="front">Front</button><button class="btn tiny" data-view="back">Back</button><button class="btn tiny" data-view="left">Left</button><button class="btn tiny" data-view="right">Right</button><button class="btn tiny" data-view="three">¾ view</button><button class="btn tiny" data-view="shoulders">Shoulders</button></div></div><div class="model-note">CC0 MakeHuman-derived body · 163-bone rig · seam-aware tattoo projection. Tattoos remain attached while the pose changes.</div><div class="hint" id="hint" aria-live="polite">Drag model to orbit · Select a motif to place it</div><div class="scene-foot">LOCAL-FIRST · REAL-TIME 3D · 1.2</div></main>
 <aside class="sidebar right"><div class="eyebrow">Edit placement</div><div class="panel-head"><h2>Inspector</h2><span class="pill" id="tatCount">0 tattoos</span></div><div id="inspector"><div class="select-help">Select a tattoo on the body or in the list to resize, rotate, move or recolour it.</div></div><div class="separator"></div>
 <div class="panel-head"><div class="section-label" style="margin:0">Pose studio</div><button class="btn tiny" id="resetPoseBtn">Neutral pose</button></div>
 <div class="detailtxt">Raise each arm sideways to inspect its underside. Bend elbows forward and knees backward. Pose is only a viewing aid; final joint creases need verification in person.</div>
@@ -34,6 +34,12 @@
 <div class="pose-label">Arms · sideways (shoulder abduction)</div>
 <div class="pose-line"><label for="abductL">Left</label><input id="abductL" data-pose="leftShoulder" type="range" min="0" max="155" step="1" value="18"><output id="out-abductL">18°</output></div>
 <div class="pose-line"><label for="abductR">Right</label><input id="abductR" data-pose="rightShoulder" type="range" min="0" max="155" step="1" value="18"><output id="out-abductR">18°</output></div>
+<div class="pose-label">Arms · forward / backward</div>
+<div class="pose-line"><label for="forwardL">Left</label><input id="forwardL" data-pose="leftShoulderForward" type="range" min="-60" max="120" step="1" value="0"><output id="out-forwardL">0°</output></div>
+<div class="pose-line"><label for="forwardR">Right</label><input id="forwardR" data-pose="rightShoulderForward" type="range" min="-60" max="120" step="1" value="0"><output id="out-forwardR">0°</output></div>
+<div class="pose-label">Upper-arm rotation</div>
+<div class="pose-line"><label for="twistL">Left</label><input id="twistL" data-pose="leftArmTwist" type="range" min="-90" max="90" step="1" value="0"><output id="out-twistL">0°</output></div>
+<div class="pose-line"><label for="twistR">Right</label><input id="twistR" data-pose="rightArmTwist" type="range" min="-90" max="90" step="1" value="0"><output id="out-twistR">0°</output></div>
 <div class="pose-label">Elbows · forward flexion</div>
 <div class="pose-line"><label for="elbowL">Left</label><input id="elbowL" data-pose="leftElbow" type="range" min="0" max="145" step="1" value="0"><output id="out-elbowL">0°</output></div>
 <div class="pose-line"><label for="elbowR">Right</label><input id="elbowR" data-pose="rightElbow" type="range" min="0" max="145" step="1" value="0"><output id="out-elbowR">0°</output></div>
@@ -336,9 +342,9 @@ function skinTransform(pt){
  let armW=step01(.61,.95,ax)*step01(-1.62,-1.37,y);
  if(armW>0){
   let shoulder=[sign*.86,2.29,0],elbow=[sign*1.18,.91,0];
-  let ab=spinZ(pt,shoulder,sign*pose[side+'Shoulder']*RAD);
+  let reached=spinX(pt,shoulder,-pose[side+'ShoulderForward']*RAD*.72),ab=spinZ(reached,shoulder,sign*pose[side+'Shoulder']*RAD);
   let elbowW=1-step01(.71,1.12,y);
-  if(elbowW>0){let bent=spinZ(spinX(pt,elbow,-pose[side+'Elbow']*RAD),shoulder,sign*pose[side+'Shoulder']*RAD);
+  if(elbowW>0){let bent=spinZ(spinX(spinX(pt,elbow,-pose[side+'Elbow']*RAD),shoulder,-pose[side+'ShoulderForward']*RAD*.72),shoulder,sign*pose[side+'Shoulder']*RAD);
    ab=ab.map((q,j)=>q*(1-elbowW)+bent[j]*elbowW);}
   p=p.map((q,j)=>q*(1-armW)+ab[j]*armW);
  }
@@ -353,7 +359,7 @@ let parts=createSkinParts(),partById=Object.fromEntries(parts.map(p=>[p.id,p]));
 if(partById.pelvis)partById.pelvis.paintable=true;
 // World space 3D rigid transformations. Local UVs never change: tattoos are
 // recomposited once per part and move with the same skinned mesh triangles.
-const pose={leftShoulder:18,rightShoulder:18,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0};
+const pose={leftShoulder:18,rightShoulder:18,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0};
 const RAD=Math.PI/180;
 function spinZ(pt,piv,a){let c=Math.cos(a),s=Math.sin(a),x=pt[0]-piv[0],y=pt[1]-piv[1];return [piv[0]+c*x-s*y,piv[1]+s*x+c*y,pt[2]]}
 function spinX(pt,piv,a){let c=Math.cos(a),s=Math.sin(a),y=pt[1]-piv[1],z=pt[2]-piv[2];return [pt[0],piv[1]+c*y-s*z,piv[2]+s*y+c*z]}
@@ -363,7 +369,7 @@ function posedPoint(id,point){let p=point;
   const shoulder=[sign*.86,2.29,0],elbow=[sign*1.18,.91,0],knee=[sign*.42,-1.54,.06];
   if(id.includes('upper_arm')||id.includes('elbow')||id.includes('forearm')||id.includes('palm')||id.includes('finger')||id.includes('thumb')){
    if(id.includes('forearm')||id.includes('palm')||id.includes('finger')||id.includes('thumb'))p=spinX(p,elbow,-pose[side+'Elbow']*RAD);
-   return spinZ(p,shoulder,sign*pose[side+'Shoulder']*RAD);
+   return spinZ(spinX(p,shoulder,-pose[side+'ShoulderForward']*RAD*.72),shoulder,sign*pose[side+'Shoulder']*RAD);
   }
   if(id.includes('calf')||id.includes('heel')||id.includes('foot')||id.includes('toe'))return spinX(p,knee,pose[side+'Knee']*RAD);
  }
@@ -493,7 +499,7 @@ function defaultLayout(){tattoos=[];
  requestDraw();
 }
 function loadLayout(){try{const stored=localStorage.getItem(STORE);if(stored){let obj=JSON.parse(stored);if(Array.isArray(obj.customAssets)){for(let a of obj.customAssets){let safe=normalizeImportedAsset(a);if(safe&&!ASSETS.some(b=>safe.id===b.id)){ASSETS.push(safe);loadAssetImg(safe)}}}
- if(obj.pose)Object.assign(pose,Object.fromEntries(Object.entries(obj.pose).filter(([k,v])=>k in pose && Number.isFinite(v)).map(([k,v])=>[k,clamp(v,0,k.includes('Knee')?135:k.includes('Elbow')?145:155)])));if(Array.isArray(obj.tattoos)){tattoos=obj.tattoos.map(migrateStarterTattoo).filter(t=>assetMap()[t.asset]&&partById[t.part]&&partById[t.part].paintable);for(let t of tattoos)t.id=t.id||uid();stateRestored=true;requestDraw();return}}}catch(e){console.warn('Could not restore local data',e)}defaultLayout()}
+ if(obj.pose)Object.assign(pose,Object.fromEntries(Object.entries(obj.pose).filter(([k,v])=>k in pose && Number.isFinite(v)).map(([k,v])=>{let min=k.includes('Forward')?-60:k.includes('Twist')?-90:0,max=k.includes('Knee')?135:k.includes('Elbow')?145:k.includes('Forward')?120:k.includes('Twist')?90:155;return [k,clamp(v,min,max)]})));if(Array.isArray(obj.tattoos)){tattoos=obj.tattoos.map(migrateStarterTattoo).filter(t=>assetMap()[t.asset]&&partById[t.part]&&partById[t.part].paintable);for(let t of tattoos)t.id=t.id||uid();stateRestored=true;requestDraw();return}}}catch(e){console.warn('Could not restore local data',e)}defaultLayout()}
 function saveLayout(showToast=true){try{const obj={version:2,date:new Date().toISOString(),pose,tattoos,customAssets:ASSETS.filter(a=>a.cat==='Uploads')};localStorage.setItem(STORE,JSON.stringify(obj));if(showToast)toast('Layout saved in this browser')}catch(e){if(showToast)toast('Browser storage full — export a JSON backup instead')}}
 function updateUI(){let aMap=assetMap();$('tatCount').textContent=`${tattoos.filter(t=>!t.protected).length} planned`;renderInspector();renderPlacements();requestDraw()}
 function selectTattoo(id){if(pendingAsset)pendingAsset=null;selectedId=id;updateUI()}
@@ -543,9 +549,9 @@ for(let b of document.querySelectorAll('[data-view]'))b.onclick=()=>setView(b.da
 $('resetBtn').onclick=()=>setView('front');$('searchInput').oninput=renderLibrary;
 function setPose(next){Object.assign(pose,next);for(let inp of document.querySelectorAll('[data-pose]')){let v=pose[inp.dataset.pose];inp.value=v;$('out-'+inp.id).textContent=v+'°';}applyPose();}
 for(let input of document.querySelectorAll('[data-pose]'))input.addEventListener('input',()=>setPose({[input.dataset.pose]:+input.value}));
-$('resetPoseBtn').onclick=()=>setPose({leftShoulder:18,rightShoulder:18,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0});
-$('armsOutBtn').onclick=()=>{setPose({leftShoulder:90,rightShoulder:90});let hs=(window.INK_ATLAS_MEASUREMENTS?.heightCm||178)/178;camDist=Math.max(camDist,Math.min(18.5,16.8*hs));requestDraw();};
-$('inspectArmsBtn').onclick=()=>{setPose({leftShoulder:115,rightShoulder:115,leftElbow:30,rightElbow:30});setView('three');let hs=(window.INK_ATLAS_MEASUREMENTS?.heightCm||178)/178;camDist=Math.min(18.5,16.8*hs);requestDraw();};
+$('resetPoseBtn').onclick=()=>setPose({leftShoulder:18,rightShoulder:18,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0});
+$('armsOutBtn').onclick=()=>{setPose({leftShoulder:90,rightShoulder:90,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0});let hs=(window.INK_ATLAS_MEASUREMENTS?.heightCm||178)/178;camDist=Math.max(camDist,Math.min(18.5,16.8*hs));requestDraw();};
+$('inspectArmsBtn').onclick=()=>{setPose({leftShoulder:108,rightShoulder:108,leftShoulderForward:24,rightShoulderForward:24,leftArmTwist:18,rightArmTwist:-18,leftElbow:30,rightElbow:30});setView('three');let hs=(window.INK_ATLAS_MEASUREMENTS?.heightCm||178)/178;camDist=Math.min(18.5,16.8*hs);requestDraw();};
 $('bentLegsBtn').onclick=()=>setPose({leftKnee:65,rightKnee:65});
 $('saveBtn').onclick=()=>saveLayout(true);
 $('clearBtn').onclick=()=>{if(confirm('Clear all planned tattoos? Existing tattoo markers will remain.')){tattoos=tattoos.filter(t=>t.protected);selectedId=null;parts.forEach(p=>p.dirty=true);updateUI();saveLayout();}};
@@ -619,7 +625,7 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
  let height=bmax[1]-bmin[1];if(height<0.05)throw Error('Invalid model scale');let sc=6.88/height,midX=(bmin[0]+bmax[0])/2,midZ=(bmin[2]+bmax[2])/2;
  let fitted=new Float32Array(positions.length);for(let i=0;i<fitted.length;i+=3){fitted[i]=(positions[i]-midX)*sc;fitted[i+1]=(positions[i+1]-bmin[1])*sc-3.41;fitted[i+2]=(positions[i+2]-midZ)*sc;}
  const shoulderMask=new Uint8Array(fitted.length/3);for(let i=0;i<shoulderMask.length;i++){let ax=Math.abs(fitted[i*3]),y=fitted[i*3+1];if(ax>.48&&ax<1.34&&y>1.62&&y<2.58)shoulderMask[i]=1}
- let neutralPose=Object.assign({},pose,{leftShoulder:0,rightShoulder:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0});
+ let neutralPose=Object.assign({},pose,{leftShoulder:0,rightShoulder:0,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0});
  // Use names rather than rigid hard-coded indexes: supports MakeHuman, Mixamo, and Quaternius-like rigs.
  let allowed=new Set(skins.flatMap(sk=>sk.joints)),names=[...allowed].map(i=>({i,name:(nodes[i].name||'').toLowerCase().replace(/[^a-z0-9]/g,'')}));
  function sideOf(str){if(/left/.test(str)||/(?:[a-z0-9])l$/.test(str)||/^l(?=upper|lower|thigh|calf|shin|forearm|arm)/.test(str))return 'left';if(/right/.test(str)||/(?:[a-z0-9])r$/.test(str)||/^r(?=upper|lower|thigh|calf|shin|forearm|arm)/.test(str))return 'right';return null}
@@ -631,10 +637,10 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
  let ibmWorld=new Map();for(let skin of skins)for(let j=0;j<skin.joints.length;j++){let node=skin.joints[j];ibmWorld.set(node,skin.ibm?[...skin.ibm.slice(j*16,j*16+16)]:Minverse(bindWorld[node]));}
  let worldNow=new Array(n),matrices=new Map(),dualQuats=new Map();const full= new Float32Array(fitted.length);
  function updateAngles(angles){let done=new Uint8Array(n);
-  function nodeWorld(i){if(done[i])return worldNow[i];done[i]=1;let pw=parent[i]<0?Midentity():nodeWorld(parent[i]);let w=Mmultiply(pw,locals[i]),rotation=null;
-   for(let [k,index] of Object.entries(controls))if(index===i){let theta=(angles[k]||0)*Math.PI/180,axis;if(k.endsWith('Shoulder')){theta*=k.startsWith('left')?-.48:.48;axis=[0,0,1]}else if(k.endsWith('Elbow')){theta*=-1;axis=[1,0,0]}else{axis=[1,0,0]}rotation={theta,axis}}
-   for(let [k,index] of Object.entries(supportBones))if(index===i&&index>=0){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,fraction=k.endsWith('Clavicle')?.13:.09;rotation={theta:(angles[side+'Shoulder']||0)*Math.PI/180*direction*fraction,axis:[0,0,1]}}
-   if(rotation){let anchor=[w[12],w[13],w[14]],about=Mmultiply(Mtranslation(anchor),Mmultiply(MrotAxis(rotation.axis,rotation.theta),Mtranslation(anchor.map(v=>-v))));w=Mmultiply(about,w)}return worldNow[i]=w}
+  function nodeWorld(i){if(done[i])return worldNow[i];done[i]=1;let pw=parent[i]<0?Midentity():nodeWorld(parent[i]);let w=Mmultiply(pw,locals[i]),rotations=[];
+   for(let [k,index] of Object.entries(controls))if(index===i){let theta=(angles[k]||0)*Math.PI/180;if(k.endsWith('Shoulder')){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,abduction=(angles[side+'Shoulder']||0)*Math.PI/180*direction*.48,forward=-(angles[side+'ShoulderForward']||0)*Math.PI/180*.72,ca=Math.cos(abduction),sa=Math.sin(abduction),cf=Math.cos(forward),sf=Math.sin(forward),base=[direction*.226,-.974,0],ax=ca*base[0]-sa*base[1],ay=sa*base[0]+ca*base[1],twistAxis=[ax,cf*ay,sf*ay];rotations.push({theta:abduction,axis:[0,0,1]},{theta:forward,axis:[1,0,0]},{theta:(angles[side+'ArmTwist']||0)*Math.PI/180*.68,axis:twistAxis})}else if(k.endsWith('Elbow')){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,abduction=(angles[side+'Shoulder']||0)*Math.PI/180*direction*.48,forward=-(angles[side+'ShoulderForward']||0)*Math.PI/180*.72,axis=[Math.cos(abduction),Math.cos(forward)*Math.sin(abduction),Math.sin(forward)*Math.sin(abduction)];rotations.push({theta:-theta,axis})}else rotations.push({theta,axis:[1,0,0]})}
+   for(let [k,index] of Object.entries(supportBones))if(index===i&&index>=0){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,fraction=k.endsWith('Clavicle')?.13:.09;rotations.push({theta:(angles[side+'Shoulder']||0)*Math.PI/180*direction*fraction,axis:[0,0,1]},{theta:-(angles[side+'ShoulderForward']||0)*Math.PI/180*fraction*.54,axis:[1,0,0]})}
+   for(let rotation of rotations){if(Math.abs(rotation.theta)<1e-7)continue;let anchor=[w[12],w[13],w[14]],about=Mmultiply(Mtranslation(anchor),Mmultiply(MrotAxis(rotation.axis,rotation.theta),Mtranslation(anchor.map(v=>-v))));w=Mmultiply(about,w)}return worldNow[i]=w}
   for(let i=0;i<n;i++)nodeWorld(i);
   for(let j of allowed){let matrix=Mmultiply(worldNow[j],ibmWorld.get(j)||Midentity());matrices.set(j,matrix);dualQuats.set(j,DQfromMatrix(matrix));}
   for(let i=0;i<influences.length;i++){let inf=influences[i],p=[0,0,0];if(inf.joints.length){let br=[0,0,0,0],bd=[0,0,0,0],linear=[0,0,0],reference=null;
@@ -644,7 +650,7 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
    else p=Mpoint(worldNow[inf.meshNode],inf.local);
    full[3*i]=(p[0]-midX)*sc;full[3*i+1]=(p[1]-bmin[1])*sc-3.41;full[3*i+2]=(p[2]-midZ)*sc;
   }
-  const profile=window.INK_ATLAS_BODY_PROFILE||'balanced',shape=profile==='lean'?[.975,.97]:profile==='athletic'?[1.018,1.028]:profile==='broad'?[1.04,1.03]:[1,1],measure=window.INK_ATLAS_MEASUREMENTS||{},female=measure.modelType==='female',base=female?{chest:91,waist:74,hips:99,biceps:28,thighs:58,shoulders:39}:{chest:96,waist:82,hips:96,biceps:32,thighs:56,shoulders:44},heightScale=clamp((measure.heightCm||178)/178,.78,1.22),frame=measure.frame||'balanced',frameShape=frame==='soft'?[1.022,1.035]:frame==='angular'?[.985,.972]:frame==='androgynous'?[.99,1.0]:[1,1],safeRatio=(value,baseline,strength=.64)=>clamp(1+(((Number(value)||baseline)/baseline)-1)*strength,.84,1.19),chest=safeRatio(measure.chestCm,base.chest),waist=safeRatio(measure.waistCm,base.waist),hips=safeRatio(measure.hipsCm,base.hips),biceps=safeRatio(measure.bicepsCm,base.biceps,.52),thighs=safeRatio(measure.thighsCm,base.thighs,.56),shoulders=safeRatio(measure.shoulderCm,base.shoulders,.62);
+  const profile=window.INK_ATLAS_BODY_PROFILE||'balanced',shape=profile==='lean'?[.975,.97]:profile==='athletic'?[1.018,1.028]:profile==='broad'?[1.04,1.03]:[1,1],measure=window.INK_ATLAS_MEASUREMENTS||{},female=measure.modelType==='female',base=female?{chest:91,waist:74,hips:99,biceps:28,thighs:58,shoulders:39}:{chest:96,waist:82,hips:96,biceps:32,thighs:56,shoulders:44},heightScale=clamp((measure.heightCm||178)/178,.78,1.22),frame=measure.frame||'balanced',frameShape=frame==='soft'?[1.022,1.035]:frame==='angular'?[.985,.972]:frame==='androgynous'?[.99,1.0]:[1,1],safeRatio=(value,baseline,strength=.64)=>clamp(1+(((Number(value)||baseline)/baseline)-1)*strength,.84,1.19),chest=safeRatio(measure.chestCm,base.chest),waist=safeRatio(measure.waistCm,base.waist),hips=safeRatio(measure.hipsCm,base.hips),biceps=safeRatio(measure.bicepsCm,base.biceps,.52),thighs=safeRatio(measure.thighsCm,base.thighs,.56),shoulders=safeRatio(measure.shoulderCm,base.shoulders,.62),breastValue=Number.isFinite(Number(measure.breastSize))?Number(measure.breastSize):50,breastAmount=female?(breastValue<50?clamp((breastValue-50)/50,-1,0):clamp((breastValue-50)/150,0,1)):0;
   for(let i=0;i<full.length;i+=3){
    let nx=fitted[i],ny=fitted[i+1],nz=fitted[i+2],ax=Math.abs(nx),side=nx<0?-1:1,x=full[i],z=full[i+2],central=1-step01(.60,1.12,ax),torsoY=step01(-.42,-.06,ny)*(1-step01(2.26,2.50,ny)),chestW=step01(.72,1.14,ny)*(1-step01(2.08,2.38,ny))*central,waistW=step01(-.18,.22,ny)*(1-step01(.92,1.30,ny))*central,pelvisW=step01(-1.34,-1.04,ny)*(1-step01(.14,.46,ny))*(1-step01(.72,1.08,ax)),shoulderW=step01(1.30,1.72,ny)*(1-step01(2.31,2.52,ny))*step01(.25,.58,ax)*(1-step01(1.72,2.02,ax)),armW=step01(.64,.94,ax)*(1-step01(1.70,2.02,ax))*step01(.48,.80,ny)*(1-step01(2.36,2.62,ny)),thighW=step01(.10,.26,ax)*(1-step01(.82,1.05,ax))*step01(-2.62,-2.34,ny)*(1-step01(-.54,-.22,ny));
    const globalX=shape[0]*frameShape[0],globalZ=shape[1]*frameShape[1],torsoScale=1+(chest-1)*chestW+(waist-1)*waistW+(hips-1)*pelvisW;
@@ -654,10 +660,14 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
    const armCenter=side*(.94+Math.max(0,2.08-ny)*.20),armDelta=(nx-armCenter)*(biceps-1)*armW,thighDelta=(nx-side*.42)*(thighs-1)*thighW;
    x+=(armDelta+thighDelta)*globalX;
    z+=nz*((biceps-1)*armW+(thighs-1)*thighW)*globalZ;
+   // The feminine base remains non-explicit. Independent, smoothly blended breast
+   // volume is added in neutral space; the central lower pelvis is flattened to a
+   // featureless planning surface without changing the surrounding hip anatomy.
+   if(female){const front=step01(.015,.22,nz),dx=nx-side*.285,dy=ny-1.72,dz=nz-.13,breast=Math.exp(-Math.pow(dx/.34,2)-Math.pow(dy/.43,2)-Math.pow(Math.max(0,dz-.30)/.34,2))*front,pelvicSmooth=Math.exp(-Math.pow(ax/.19,2)-Math.pow((ny+.36)/.28,2))*front,radial=breastAmount*breast*.95;x+=dx*radial;full[i+1]+=dy*radial;z+=dz*radial+breastAmount*.20*breast;z-=Math.max(0,z-.16)*.72*pelvicSmooth;}
    // Pose-space shoulder correctives preserve the deltoid cap and axillary volume
    // that linear skinning otherwise collapses at high arm abduction.
-   const sideName=side<0?'left':'right',shoulderAngle=clamp((angles[sideName+'Shoulder']||0)/155,0,1),lift=Math.sin(shoulderAngle*Math.PI*.5),cap=Math.exp(-Math.pow((ax-.92)/.34,2)-Math.pow((ny-2.10)/.43,2)),axilla=Math.exp(-Math.pow((ax-.72)/.24,2)-Math.pow((ny-1.67)/.30,2));
-   x+=side*lift*(.040*cap+.026*axilla);full[i+1]+=lift*(.026*cap-.014*axilla);z+=Math.sign(nz||1)*lift*(.022*cap+.012*axilla);
+   const sideName=side<0?'left':'right',shoulderAngle=clamp((angles[sideName+'Shoulder']||0)/155,0,1),forwardAngle=clamp(Math.abs(angles[sideName+'ShoulderForward']||0)/120,0,1),lift=Math.sin(shoulderAngle*Math.PI*.5),reach=Math.sin(forwardAngle*Math.PI*.5),cap=Math.exp(-Math.pow((ax-.92)/.34,2)-Math.pow((ny-2.10)/.43,2)),axilla=Math.exp(-Math.pow((ax-.72)/.24,2)-Math.pow((ny-1.67)/.30,2));
+   x+=side*(lift*(.040*cap+.026*axilla)+reach*.018*cap);full[i+1]+=lift*(.026*cap-.014*axilla)+reach*.018*cap;z+=Math.sign(nz||1)*(lift*(.022*cap+.012*axilla)+reach*.020*cap);
    full[i]=x;full[i+1]=(full[i+1]+3.41)*heightScale-3.41;full[i+2]=z;
   }
  }
@@ -691,6 +701,7 @@ try {
 } catch (_) { window.INK_ATLAS_SELECTED_BODY_MODEL='male'; }
 document.write(`<script src="${window.INK_ATLAS_SELECTED_BODY_MODEL==='female'?'female-model-data.js':'model-data.js'}"><\/script>`);
 </script>
-<script src="v6.js?v=1.1.0"></script>
-<script src="v7.js?v=1.1.0"></script>
+<script src="appearance-assets.js?v=1.2.0"></script>
+<script src="v6.js?v=1.2.0"></script>
+<script src="v7.js?v=1.2.0"></script>
 </body></html>

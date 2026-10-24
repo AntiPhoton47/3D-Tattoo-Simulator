@@ -1,5 +1,5 @@
-const CACHE='ink-atlas-v1.1.0';
-const SHELL=['./','./index.html','./v6.css','./v7.css','./v6.js','./v7.js','./model-data.js','./female-model-data.js','./assets/male-base-mesh-base_male.glb','./assets/female-base-mesh-base_female.glb','./icon.svg','./manifest.json','./README.md','./THIRD_PARTY_NOTICES.md','./PRIVACY.md'];
+const CACHE='ink-atlas-v1.2.0';
+const SHELL=['./','./index.html','./v6.css','./v7.css','./v6.js','./v7.js','./model-data.js','./female-model-data.js','./appearance-assets.js','./assets/male-base-mesh-base_male.glb','./assets/female-base-mesh-base_female.glb','./icon.svg','./manifest.json','./README.md','./THIRD_PARTY_NOTICES.md','./PRIVACY.md'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{if(event.request.method!=='GET')return;event.respondWith(caches.match(event.request,{ignoreSearch:true}).then(cached=>cached||fetch(event.request).then(response=>{const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy));return response;}).catch(()=>event.request.mode==='navigate'?caches.match('./index.html'):Response.error())));});

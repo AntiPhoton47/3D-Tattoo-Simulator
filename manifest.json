@@ -1,7 +1,7 @@
 {
-  "name": "Ink Atlas 1.1 — 3D Tattoo Placement Simulator",
+  "name": "Ink Atlas 1.2 — 3D Tattoo Placement Simulator",
   "short_name": "Ink Atlas",
-  "description": "Offline multi-body 3D tattoo placement, clothing preview, pose analysis, colour planning and artist handoff.",
+  "description": "Offline multi-body 3D tattoo placement, wardrobe and grooming preview, pose analysis, colour planning and artist handoff.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

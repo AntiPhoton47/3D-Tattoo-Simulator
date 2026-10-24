@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { extname } from 'node:path';
 
 const required = [
-  'index.html', 'v6.js', 'v6.css', 'v7.js', 'v7.css', 'model-data.js', 'female-model-data.js',
+  'index.html', 'v6.js', 'v6.css', 'v7.js', 'v7.css', 'model-data.js', 'female-model-data.js', 'appearance-assets.js',
   'assets/male-base-mesh-base_male.glb', 'assets/female-base-mesh-base_female.glb', 'manifest.json', 'sw.js', 'icon.svg',
   'README.md', 'LICENSE', 'MODEL_LICENSE.md', 'THIRD_PARTY_NOTICES.md',
   'PRIVACY.md', 'SECURITY.md', 'CITATION.cff'
@@ -14,7 +14,7 @@ for (const file of required) {
   if (!statSync(file, { throwIfNoEntry: false })?.isFile()) fail(`Missing required file: ${file}`);
 }
 
-for (const file of ['v6.js', 'v7.js', 'sw.js', 'playwright.config.js', 'tests/visual.spec.js']) {
+for (const file of ['appearance-assets.js', 'v6.js', 'v7.js', 'sw.js', 'playwright.config.js', 'tests/visual.spec.js']) {
   try { new Function(readFileSync(file, 'utf8')); }
   catch (error) { fail(`${file} does not parse: ${error.message}`); }
 }
@@ -53,6 +53,12 @@ function validateModel(payloadFile, glbFile) {
 }
 const glb = validateModel('model-data.js', 'assets/male-base-mesh-base_male.glb');
 const femaleGlb = validateModel('female-model-data.js', 'assets/female-base-mesh-base_female.glb');
+
+const appearanceSource = readFileSync('appearance-assets.js', 'utf8');
+for (const asset of ['shirt_male', 'shirt_female', 'cap', 'beard_full', 'moustache']) {
+  if (!appearanceSource.includes(`\"${asset}\"`)) fail(`Missing bundled appearance mesh: ${asset}`);
+}
+if (statSync('appearance-assets.js').size > 250_000) fail('Appearance mesh payload exceeds the mobile release budget');
 
 const textFiles = required.filter(file => !['.glb'].includes(extname(file)) && !['model-data.js','female-model-data.js'].includes(file));
 const releaseText = textFiles.map(file => readFileSync(file, 'utf8')).join('\n');
