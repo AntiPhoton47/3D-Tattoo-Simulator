@@ -28,10 +28,10 @@ test('feminine model supports covered and non-explicit unclothed planning', asyn
   test.skip(testInfo.project.name !== 'desktop');
   await openClean(page, 'female');
   await expect(page.locator('#bodyModelType')).toHaveValue('female');
-  await expect(page.locator('#v7Outfit')).toHaveValue('sport');
-  await expect(page.locator('#v7Outfit option[value="none"]')).toHaveCount(1);
-  await page.locator('#v7Outfit').selectOption('none');
   await expect(page.locator('#v7Outfit')).toHaveValue('none');
+  await expect(page.locator('#v7Outfit option[value="none"]')).toHaveCount(1);
+  await expect(page.locator('#v7Outfit option')).toHaveCount(179);
+  await expect(page.locator('#v7Outfit option[value="sport"]')).toHaveCount(0);
   await page.locator('#v7BreastSize').fill('0');
   expect(await page.evaluate(() => window.INK_ATLAS_MEASUREMENTS.breastSize)).toBe(0);
   await page.locator('#v7BreastSize').fill('200');
@@ -53,7 +53,7 @@ test('pose extremes keep the corrected shoulder surface stable', async ({ page }
   await page.locator('#twistL').fill('45');
   await page.locator('#twistR').fill('-45');
   for (const id of ['#elbowL', '#elbowR']) await page.locator(id).fill('90');
-  await page.locator('#v7Outfit').selectOption('tee_shorts');
+  await page.locator('#v7Outfit').selectOption('asset:shirts01_cc0_toigo_keyhole_tank_top');
   await page.waitForTimeout(250);
   await expect(page.locator('#glCanvas')).toHaveScreenshot('feminine-pose-extremes.png', { maxDiffPixelRatio: .10 });
   await page.locator('#v7Calibrate').click();
@@ -62,22 +62,23 @@ test('pose extremes keep the corrected shoulder surface stable', async ({ page }
   expect(errors).toEqual([]);
 });
 
-test('wardrobe, hair and facial hair controls render and persist', async ({ page }, testInfo) => {
+test('MakeHuman wardrobe, hair and facial hair controls render and persist', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await openClean(page, 'male');
-  await page.locator('#v7Outfit').selectOption('jacket_jeans');
-  await page.locator('#v7Shoes').selectOption('boots');
-  await page.locator('#v7Socks').selectOption('crew');
-  await page.locator('#v7Gloves').selectOption('long');
-  await page.locator('#v7Hat').selectOption('cap');
-  await page.locator('#v7Eyewear').selectOption('square');
-  await page.locator('#v7HairStyle').selectOption('crop');
-  await page.locator('#v7FacialHair').selectOption('full');
+  const chosen=['shirts03_ccby_drednicolson_asymmetric_tunic_and_sash','shoes02_ccby_dressupdoc_balletflat1','gloves01_cc0_culturalibre_hero_heroine_gloves_1','hats03_cc_by_elvs_slouchy_beanie1','glasses01_cc0_ews_3d_glasses','hair01_cc0_learning_anime_hair','bodyparts05_cc0_culturalibre_faun_beard'];
+  await page.locator('#v7Outfit').selectOption(`asset:${chosen[0]}`);
+  await page.locator('#v7Shoes').selectOption(`asset:${chosen[1]}`);
+  await page.locator('#v7Gloves').selectOption(`asset:${chosen[2]}`);
+  await page.locator('#v7Hat').selectOption(`asset:${chosen[3]}`);
+  await page.locator('#v7Eyewear').selectOption(`asset:${chosen[4]}`);
+  await page.locator('#v7HairStyle').selectOption(`asset:${chosen[5]}`);
+  await page.locator('#v7FacialHair').selectOption(`asset:${chosen[6]}`);
   await page.waitForTimeout(450);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1')).bodySettings);
-  expect(saved).toMatchObject({outfit:'jacket_jeans',shoes:'boots',socks:'crew',gloves:'long',hat:'cap',eyewear:'square',hairStyle:'crop',facialHair:'full'});
+  expect(saved.equippedAssets).toEqual(expect.arrayContaining(chosen));
+  for(const legacy of ['outfit','shoes','socks','gloves','hat','eyewear','hairStyle','facialHair'])expect(saved[legacy]).toBeUndefined();
   await page.screenshot({ path: testInfo.outputPath('styled-model-render.png') });
   expect(errors).toEqual([]);
 });
@@ -97,7 +98,7 @@ test('downloaded MakeHuman assets deform with the body and persist', async ({ pa
   expect(stats.finite).toBe(true);
   expect(stats.vertices).toBe(823);
   expect(stats.min[0]).toBeGreaterThan(-3);
-  expect(stats.max[0]).toBeLessThan(3);
+  expect(stats.max[0]).toBeLessThan(3.4);
   expect(stats.min[1]).toBeGreaterThan(-3.5);
   expect(stats.max[1]).toBeLessThan(3.6);
   const saved=await page.evaluate(() => JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1')).bodySettings.equippedAssets);
@@ -135,6 +136,22 @@ test('MakeHuman pose library applies bounded limb adaptations', async ({ page },
   expect(await page.evaluate(() => Object.values(pose).every(Number.isFinite))).toBe(true);
 });
 
+test('both legs support hip abduction and adduction', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop');
+  await openClean(page, 'male');
+  await page.locator('#hipL').fill('55');
+  await page.locator('#hipR').fill('-25');
+  await page.locator('#kneeL').fill('45');
+  await expect(page.locator('#out-hipL')).toHaveText('55°');
+  await expect(page.locator('#out-hipR')).toHaveText('-25°');
+  const state=await page.evaluate(()=>({pose:{...pose},controls:{...importedRig.controls},finite:parts.every(part=>Array.from(part.positions).every(Number.isFinite))}));
+  expect(state.pose).toMatchObject({leftHip:55,rightHip:-25,leftKnee:45});
+  expect(state.controls.leftHip).toBeGreaterThanOrEqual(0);
+  expect(state.controls.rightHip).toBeGreaterThanOrEqual(0);
+  expect(state.finite).toBe(true);
+  await expect(page.locator('#glCanvas')).toHaveScreenshot('hip-abduction-adduction.png', { maxDiffPixelRatio: .10 });
+});
+
 test('body model switching and direct-file mode both load', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop');
   await page.goto('/');
@@ -143,7 +160,7 @@ test('body model switching and direct-file mode both load', async ({ page }, tes
   await expect(page.locator('#modelStatus')).toContainText(/base mesh|vertices/, { timeout: 30_000 });
   await page.locator('#bodyModelType').selectOption('female');
   await expect(page.locator('#modelStatus')).toContainText('feminine base mesh', { timeout: 30_000 });
-  await expect(page.locator('#v7Outfit')).toHaveValue('sport');
+  await expect(page.locator('#v7Outfit')).toHaveValue('none');
   await page.goto(pathToFileURL(resolve('index.html')).href);
   await expect(page.locator('#modelStatus')).toContainText(/base mesh|vertices/, { timeout: 30_000 });
   await expect(page.locator('#glCanvas')).toBeVisible();

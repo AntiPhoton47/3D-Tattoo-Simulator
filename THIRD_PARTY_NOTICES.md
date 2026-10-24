@@ -11,16 +11,6 @@ The files `assets/male-base-mesh-base_male.glb`, `assets/female-base-mesh-base_f
 
 Innerscene identifies the model as adapted from MakeHuman CC0 assets and releases it under CC0. MakeHuman's official license page likewise states that its core graphical assets are CC0. Attribution is not required by CC0, but these credits are retained for provenance and reproducibility.
 
-## Selected MakeHuman appearance meshes
-
-`appearance-assets.js` contains a reduced, texture-free geometry build of five assets from the official MakeHuman community asset packs. All five source assets are marked CC0. The build script preserves only vertex positions and triangulated faces so the app can recolour and fit them locally without shipping the complete packs.
-
-- Crude male T-shirt by Elvaerwyn and crude female T-shirt by Joel Palmius, from [Shirts 01](https://static.makehumancommunity.org/assets/assetpacks/shirts01.html)
-- Newsboy cap by jujube, from [Hats 01](https://static.makehumancommunity.org/assets/assetpacks/hats01.html)
-- Scruffy beard by WDG and Viking moustache by RehmanPolanski, from [Bodyparts 05](https://static.makehumancommunity.org/assets/assetpacks/bodyparts05.html)
-- Pack index and individual license metadata: [MakeHuman asset packs](https://static.makehumancommunity.org/assets/assetpacks.html)
-- License: [Creative Commons Zero v1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
-
 ## Expanded MakeHuman community library
 
 `appearance-catalog.js`, `assets/appearance-library/` and `assets/appearance-textures/` contain optimized geometry and diffuse materials generated from 28 MakeHuman community asset packs: Bodyparts 04–06, Dress 01–02, Eyebrows 01, Eyelashes 01, Glasses 01–02, Gloves 01, Hair 01–02, Hats 03, Pants 01–02, Shirts 01–03, Shoes 01–03, Skirts 01–02, Underwear 01–04 and the eyes in MakeHuman System Assets. The catalog records each item's author, license, original source page, intended body compatibility and originating pack.

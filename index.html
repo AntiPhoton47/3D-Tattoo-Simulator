@@ -43,6 +43,9 @@
 <div class="pose-label">Elbows · forward flexion</div>
 <div class="pose-line"><label for="elbowL">Left</label><input id="elbowL" data-pose="leftElbow" type="range" min="0" max="145" step="1" value="0"><output id="out-elbowL">0°</output></div>
 <div class="pose-line"><label for="elbowR">Right</label><input id="elbowR" data-pose="rightElbow" type="range" min="0" max="145" step="1" value="0"><output id="out-elbowR">0°</output></div>
+<div class="pose-label">Legs · sideways (hip abduction)</div>
+<div class="pose-line"><label for="hipL">Left</label><input id="hipL" data-pose="leftHip" type="range" min="-25" max="55" step="1" value="0"><output id="out-hipL">0°</output></div>
+<div class="pose-line"><label for="hipR">Right</label><input id="hipR" data-pose="rightHip" type="range" min="-25" max="55" step="1" value="0"><output id="out-hipR">0°</output></div>
 <div class="pose-label">Knees · backward flexion</div>
 <div class="pose-line"><label for="kneeL">Left</label><input id="kneeL" data-pose="leftKnee" type="range" min="0" max="135" step="1" value="0"><output id="out-kneeL">0°</output></div>
 <div class="pose-line"><label for="kneeR">Right</label><input id="kneeR" data-pose="rightKnee" type="range" min="0" max="135" step="1" value="0"><output id="out-kneeR">0°</output></div>
@@ -358,19 +361,22 @@ let parts=createSkinParts(),partById=Object.fromEntries(parts.map(p=>[p.id,p]));
 if(partById.pelvis)partById.pelvis.paintable=true;
 // World space 3D rigid transformations. Local UVs never change: tattoos are
 // recomposited once per part and move with the same skinned mesh triangles.
-const pose={leftShoulder:18,rightShoulder:18,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0};
+const pose={leftShoulder:18,rightShoulder:18,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftHip:0,rightHip:0,leftKnee:0,rightKnee:0};
 const RAD=Math.PI/180;
 function spinZ(pt,piv,a){let c=Math.cos(a),s=Math.sin(a),x=pt[0]-piv[0],y=pt[1]-piv[1];return [piv[0]+c*x-s*y,piv[1]+s*x+c*y,pt[2]]}
 function spinX(pt,piv,a){let c=Math.cos(a),s=Math.sin(a),y=pt[1]-piv[1],z=pt[2]-piv[2];return [pt[0],piv[1]+c*y-s*z,piv[2]+s*y+c*z]}
 function posedPoint(id,point){let p=point;
  for(let sign of [-1,1]){
   let side=sign<0?'left':'right';if(!id.startsWith(side+'_'))continue;
-  const shoulder=[sign*.86,2.29,0],elbow=[sign*1.18,.91,0],knee=[sign*.42,-1.54,.06];
+  const shoulder=[sign*.86,2.29,0],elbow=[sign*1.18,.91,0],hip=[sign*.42,-.30,0],knee=[sign*.42,-1.54,.06];
   if(id.includes('upper_arm')||id.includes('elbow')||id.includes('forearm')||id.includes('palm')||id.includes('finger')||id.includes('thumb')){
    if(id.includes('forearm')||id.includes('palm')||id.includes('finger')||id.includes('thumb'))p=spinX(p,elbow,-pose[side+'Elbow']*RAD);
    return spinZ(spinX(p,shoulder,-pose[side+'ShoulderForward']*RAD*.72),shoulder,sign*pose[side+'Shoulder']*RAD);
   }
-  if(id.includes('calf')||id.includes('heel')||id.includes('foot')||id.includes('toe'))return spinX(p,knee,pose[side+'Knee']*RAD);
+  if(id.includes('thigh')||id.includes('calf')||id.includes('heel')||id.includes('foot')||id.includes('toe')){
+   if(id.includes('calf')||id.includes('heel')||id.includes('foot')||id.includes('toe'))p=spinX(p,knee,pose[side+'Knee']*RAD);
+   return spinZ(p,hip,sign*pose[side+'Hip']*RAD);
+  }
  }
  return p;
 }
@@ -543,7 +549,7 @@ canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;l
 function pointerEnd(e){if(!pointers.has(e.pointerId))return;pointers.delete(e.pointerId);if(pointers.size>=1){gesture=null;return}if(!gesture)return;const g=gesture;gesture=null;if(g.type==='pending'){let [px,py]=xy(e),hit=hitModel(px,py);if(moveExisting){let t=tattoos.find(t=>t.id===moveExisting);if(hit&&t&&!t.locked){let old=t.part;t.part=hit.part;t.u=hit.u;t.v=hit.v;markDirty(old);markDirty(t.part);selectTattoo(t.id);toast('Tattoo moved to '+nameOf(hit.part));saveLayout(false)}moveExisting=null;cancelPending()}else if(pendingAsset){if(hit){let t=addTattoo(pendingAsset,hit.part,hit.u,hit.v);cancelPending();selectTattoo(t.id);toast('Placed · Drag tattoo to fine-tune');saveLayout(false)}else toast('Click a visible part of the body to place the tattoo')}else if(g.near){selectTattoo(g.near.id)}else if(hit){selectedId=null;updateUI()}}else if(g.type==='move'){saveLayout(false);renderPlacements()}canvas.classList.remove('grabbing')}
 canvas.addEventListener('pointerup',pointerEnd);canvas.addEventListener('pointercancel',pointerEnd);
 canvas.addEventListener('wheel',e=>{e.preventDefault();camDist=clamp(camDist*Math.exp(e.deltaY*.0011),5.4,17.6);requestDraw()},{passive:false});
-function setView(view){let heightScale=(window.INK_ATLAS_MEASUREMENTS?.heightCm||178)/178,armFactor=Math.max(pose.leftShoulder||0,pose.rightShoulder||0)/155,fullDistance=clamp(12.7*heightScale+armFactor*3.2,11,18.5),views={front:[0,.045,fullDistance],back:[Math.PI,.045,fullDistance],left:[-Math.PI/2,.045,fullDistance],right:[Math.PI/2,.045,fullDistance],three:[Math.PI/4,.13,fullDistance],shoulders:[.46,.075,5.9]};[currentYaw,currentPitch,camDist]=views[view]||views.front;let baseY=view==='shoulders'?2.09:.08+armFactor*.32;camTarget=[0,(baseY+3.41)*heightScale-3.41,0];$('viewTitle').textContent=({front:'Front',back:'Back',left:'Left profile',right:'Right profile',three:'Three-quarter',shoulders:'Shoulder detail'}[view]||'Front')+' · placement view';requestDraw()}
+function setView(view){let heightScale=(window.INK_ATLAS_MEASUREMENTS?.heightCm||178)/178,armFactor=Math.max(pose.leftShoulder||0,pose.rightShoulder||0)/155,legFactor=Math.max(Math.abs(pose.leftHip||0),Math.abs(pose.rightHip||0))/55,fullDistance=clamp(12.7*heightScale+armFactor*3.2+legFactor*1.4,11,18.5),views={front:[0,.045,fullDistance],back:[Math.PI,.045,fullDistance],left:[-Math.PI/2,.045,fullDistance],right:[Math.PI/2,.045,fullDistance],three:[Math.PI/4,.13,fullDistance],shoulders:[.46,.075,5.9]};[currentYaw,currentPitch,camDist]=views[view]||views.front;let baseY=view==='shoulders'?2.09:.08+armFactor*.32;camTarget=[0,(baseY+3.41)*heightScale-3.41,0];$('viewTitle').textContent=({front:'Front',back:'Back',left:'Left profile',right:'Right profile',three:'Three-quarter',shoulders:'Shoulder detail'}[view]||'Front')+' · placement view';requestDraw()}
 for(let b of document.querySelectorAll('[data-view]'))b.onclick=()=>setView(b.dataset.view);
 $('resetBtn').onclick=()=>setView('front');$('searchInput').oninput=renderLibrary;
 function setPose(next){Object.assign(pose,next);for(let inp of document.querySelectorAll('[data-pose]')){let v=pose[inp.dataset.pose];inp.value=v;$('out-'+inp.id).textContent=v+'°';}applyPose();}
@@ -621,12 +627,12 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
  let fitted=new Float32Array(positions.length);for(let i=0;i<fitted.length;i+=3){fitted[i]=(positions[i]-midX)*sc;fitted[i+1]=(positions[i+1]-bmin[1])*sc-3.41;fitted[i+2]=(positions[i+2]-midZ)*sc;}
  const peerGroups=new Map(),vertexPeers=new Array(fitted.length/3);for(let i=0;i<fitted.length;i+=3){const key=`${Math.round(fitted[i]*100000)},${Math.round(fitted[i+1]*100000)},${Math.round(fitted[i+2]*100000)}`;if(!peerGroups.has(key))peerGroups.set(key,[]);peerGroups.get(key).push(i/3);}for(const group of peerGroups.values())for(const index of group)vertexPeers[index]=group;
  const shoulderMask=new Uint8Array(fitted.length/3);for(let i=0;i<shoulderMask.length;i++){let ax=Math.abs(fitted[i*3]),y=fitted[i*3+1];if(ax>.48&&ax<1.34&&y>1.62&&y<2.58)shoulderMask[i]=1}
- let neutralPose=Object.assign({},pose,{leftShoulder:0,rightShoulder:0,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftKnee:0,rightKnee:0});
+ let neutralPose=Object.assign({},pose,{leftShoulder:0,rightShoulder:0,leftShoulderForward:0,rightShoulderForward:0,leftArmTwist:0,rightArmTwist:0,leftElbow:0,rightElbow:0,leftHip:0,rightHip:0,leftKnee:0,rightKnee:0});
  // Use names rather than rigid hard-coded indexes: supports MakeHuman, Mixamo, and Quaternius-like rigs.
  let allowed=new Set(skins.flatMap(sk=>sk.joints)),names=[...allowed].map(i=>({i,name:(nodes[i].name||'').toLowerCase().replace(/[^a-z0-9]/g,'')}));
  function sideOf(str){if(/left/.test(str)||/(?:[a-z0-9])l$/.test(str)||/^l(?=upper|lower|thigh|calf|shin|forearm|arm)/.test(str))return 'left';if(/right/.test(str)||/(?:[a-z0-9])r$/.test(str)||/^r(?=upper|lower|thigh|calf|shin|forearm|arm)/.test(str))return 'right';return null}
- function match(side,type){let rules=type==='Shoulder'?[/upperarm01/,/upperarm/,/uparm/,/shoulder/,/^arm/]:type==='Elbow'?[/lowerarm01/,/lowerarm/,/forearm/,/elbow/]:[/lowerleg/,/shin/,/calf/,/knee/];let candidates=names.filter(o=>sideOf(o.name)===side);for(let re of rules){let c=candidates.find(o=>re.test(o.name)&&!/(twist|helper|roll|target|ik)/.test(o.name));if(c)return c.i}return -1}
- const controls={};for(let side of ['left','right']){let rigSide=side==='left'?'right':'left';for(let type of ['Shoulder','Elbow','Knee'])controls[side+type]=match(rigSide,type);}
+ function match(side,type){let rules=type==='Shoulder'?[/upperarm01/,/upperarm/,/uparm/,/shoulder/,/^arm/]:type==='Elbow'?[/lowerarm01/,/lowerarm/,/forearm/,/elbow/]:type==='Hip'?[/upperleg01/,/upperleg/,/thigh/,/upleg/,/hip/]:[/lowerleg01/,/lowerleg/,/shin/,/calf/,/knee/];let candidates=names.filter(o=>sideOf(o.name)===side);for(let re of rules){let c=candidates.find(o=>re.test(o.name)&&!/(twist|helper|roll|target|ik)/.test(o.name));if(c)return c.i}return -1}
+ const controls={};for(let side of ['left','right']){let rigSide=side==='left'?'right':'left';for(let type of ['Shoulder','Elbow','Hip','Knee'])controls[side+type]=match(rigSide,type);}
  function support(side,pattern){let candidates=names.filter(o=>sideOf(o.name)===side);let c=candidates.find(o=>pattern.test(o.name)&&!/(target|ik)/.test(o.name));return c?c.i:-1}
  const supportBones={};for(let side of ['left','right']){let rigSide=side==='left'?'right':'left';supportBones[side+'Clavicle']=support(rigSide,/clavicle|collar/);supportBones[side+'ShoulderCap']=support(rigSide,/shoulder01|shoulder/)}
  if(controls.leftShoulder<0&&controls.rightShoulder<0)throw Error('Skinned GLB loaded but arm bones could not be identified. Try a MakeHuman/MPFB humanoid rig.');
@@ -634,7 +640,7 @@ function importRiggedGeometry(buffer){let {json,accessor}=readGLB(buffer),nodes=
  let worldNow=new Array(n),matrices=new Map(),dualQuats=new Map();const full= new Float32Array(fitted.length);
  function updateAngles(angles){let done=new Uint8Array(n);
   function nodeWorld(i){if(done[i])return worldNow[i];done[i]=1;let pw=parent[i]<0?Midentity():nodeWorld(parent[i]);let w=Mmultiply(pw,locals[i]),rotations=[];
-   for(let [k,index] of Object.entries(controls))if(index===i){let theta=(angles[k]||0)*Math.PI/180;if(k.endsWith('Shoulder')){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,abduction=(angles[side+'Shoulder']||0)*Math.PI/180*direction*.48,forward=-(angles[side+'ShoulderForward']||0)*Math.PI/180*.72,ca=Math.cos(abduction),sa=Math.sin(abduction),cf=Math.cos(forward),sf=Math.sin(forward),base=[direction*.226,-.974,0],ax=ca*base[0]-sa*base[1],ay=sa*base[0]+ca*base[1],twistAxis=[ax,cf*ay,sf*ay];rotations.push({theta:abduction,axis:[0,0,1]},{theta:forward,axis:[1,0,0]},{theta:(angles[side+'ArmTwist']||0)*Math.PI/180*.68,axis:twistAxis})}else if(k.endsWith('Elbow')){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,abduction=(angles[side+'Shoulder']||0)*Math.PI/180*direction*.48,forward=-(angles[side+'ShoulderForward']||0)*Math.PI/180*.72,axis=[Math.cos(abduction),Math.cos(forward)*Math.sin(abduction),Math.sin(forward)*Math.sin(abduction)];rotations.push({theta:-theta,axis})}else rotations.push({theta,axis:[1,0,0]})}
+   for(let [k,index] of Object.entries(controls))if(index===i){let theta=(angles[k]||0)*Math.PI/180;if(k.endsWith('Shoulder')){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,abduction=(angles[side+'Shoulder']||0)*Math.PI/180*direction*.48,forward=-(angles[side+'ShoulderForward']||0)*Math.PI/180*.72,ca=Math.cos(abduction),sa=Math.sin(abduction),cf=Math.cos(forward),sf=Math.sin(forward),base=[direction*.226,-.974,0],ax=ca*base[0]-sa*base[1],ay=sa*base[0]+ca*base[1],twistAxis=[ax,cf*ay,sf*ay];rotations.push({theta:abduction,axis:[0,0,1]},{theta:forward,axis:[1,0,0]},{theta:(angles[side+'ArmTwist']||0)*Math.PI/180*.68,axis:twistAxis})}else if(k.endsWith('Elbow')){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,abduction=(angles[side+'Shoulder']||0)*Math.PI/180*direction*.48,forward=-(angles[side+'ShoulderForward']||0)*Math.PI/180*.72,axis=[Math.cos(abduction),Math.cos(forward)*Math.sin(abduction),Math.sin(forward)*Math.sin(abduction)];rotations.push({theta:-theta,axis})}else if(k.endsWith('Hip')){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1;rotations.push({theta:theta*direction,axis:[0,0,1]})}else{let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,hip=(angles[side+'Hip']||0)*Math.PI/180*direction;rotations.push({theta,axis:[Math.cos(hip),Math.sin(hip),0]})}}
    for(let [k,index] of Object.entries(supportBones))if(index===i&&index>=0){let side=k.startsWith('left')?'left':'right',direction=side==='left'?-1:1,elevation=clamp(((angles[side+'Shoulder']||0)-30)/120,0,1),rhythm=elevation*elevation*(3-2*elevation),fraction=k.endsWith('Clavicle')?.13+.035*rhythm:.09-.025*rhythm;rotations.push({theta:(angles[side+'Shoulder']||0)*Math.PI/180*direction*fraction,axis:[0,0,1]},{theta:-(angles[side+'ShoulderForward']||0)*Math.PI/180*fraction*.54,axis:[1,0,0]})}
    for(let rotation of rotations){if(Math.abs(rotation.theta)<1e-7)continue;let anchor=[w[12],w[13],w[14]],about=Mmultiply(Mtranslation(anchor),Mmultiply(MrotAxis(rotation.axis,rotation.theta),Mtranslation(anchor.map(v=>-v))));w=Mmultiply(about,w)}return worldNow[i]=w}
   for(let i=0;i<n;i++)nodeWorld(i);
@@ -698,7 +704,6 @@ try {
 } catch (_) { window.INK_ATLAS_SELECTED_BODY_MODEL='male'; }
 document.write(`<script src="${window.INK_ATLAS_SELECTED_BODY_MODEL==='female'?'female-model-data.js':'model-data.js'}"><\/script>`);
 </script>
-<script src="appearance-assets.js?v=1.3.0"></script>
 <script src="appearance-catalog.js?v=1.3.0"></script>
 <script src="base-vertex-map.js?v=1.3.0"></script>
 <script src="anatomy-targets.js?v=1.3.0"></script>
