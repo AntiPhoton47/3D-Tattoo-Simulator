@@ -136,12 +136,13 @@ test('feminine face keeps fine features aligned with anatomy changes',async({pag
   await page.locator('#v7EarShape').selectOption('ears_elvs_flap_ears_2');
   await page.locator('#v7CheekShape').selectOption('cheeks_elvs_chipmunk_cheeks_low_1');
   await page.evaluate(()=>window.InkAtlasV7Bridge.focusBodyRegion('head'));await page.waitForTimeout(350);
-  for(const id of ['eyebrows01_cc0_mindfront_eyebrows_01','eyelashes01_cc0_mindfront_eyelashes_01','makehuman_system_assets_cc0_high_poly']){const stats=await page.evaluate(id=>window.InkAtlasV7Bridge.appearanceAssetStats(id),id);expect(stats?.finite).toBe(true);expect(stats?.deformationMode).toBe('stable facial feature frame');}
+  for(const id of ['eyebrows01_cc0_mindfront_eyebrows_01','eyelashes01_cc0_mindfront_eyelashes_01','makehuman_system_assets_cc0_high_poly']){const stats=await page.evaluate(id=>window.InkAtlasV7Bridge.appearanceAssetStats(id),id);expect(stats?.finite).toBe(true);expect(stats?.deformationMode).toBe('paired anatomical head frames');}
   await expect(page.locator('#glCanvas')).toHaveScreenshot('feminine-adaptive-face.png',{maxDiffPixelRatio:.08});expect(errors).toEqual([]);
 });
 
 for (const model of ['male','female']) test(`${model} body keeps MakeHuman assets fitted through combined shape and pose extremes`, async ({page},testInfo)=>{
   test.skip(testInfo.project.name!=='desktop');const errors=[];page.on('pageerror',error=>errors.push(error.message));await openClean(page,model);
+  const baselineMask=await page.evaluate(()=>window.InkAtlasV7Bridge.appearanceBodyMaskStats().hiddenTriangles);
   const ids=['shirts01_cc0_toigo_camisole_top','pants02_ccby_punkduck_female_tight_jeans','shoes02_ccby_punkduck_comfortable_sneakers','gloves01_cc0_toigo_gloves_long','hair02_ccby_elvs_micky_afro','glasses02_ccby_punkduck_sport_sunglasses'];
   for(const id of ids)await page.evaluate(id=>window.InkAtlasV7Bridge.equipAppearanceAsset(id),id);
   await expect.poll(()=>page.evaluate(ids=>window.InkAtlasV7Bridge.appearanceBodyMaskStats().hiddenTriangles+ids.reduce((sum,id)=>sum+(window.InkAtlasV7Bridge.appearanceAssetStats(id)?.backingTriangles||0),0),ids)).toBeGreaterThan(0);
@@ -151,15 +152,15 @@ for (const model of ['male','female']) test(`${model} body keeps MakeHuman asset
   await page.waitForTimeout(700);
   const stats=await page.evaluate(ids=>Object.fromEntries(ids.map(id=>[id,window.InkAtlasV7Bridge.appearanceAssetStats(id)])),ids);
   expect(stats.shoes02_ccby_punkduck_comfortable_sneakers.vertices).toBe(1078);
-  for(const result of Object.values(stats)){expect(result.bound).toBe(true);expect(result.finite).toBe(true);expect(result.invalidVertices).toBe(0);expect(result.deformationMode).toContain('surface frame');expect(Math.max(...result.max.map(Math.abs),...result.min.map(Math.abs))).toBeLessThan(8);}
+  for(const [id,result] of Object.entries(stats)){expect(result.bound).toBe(true);expect(result.finite).toBe(true);expect(result.invalidVertices).toBe(0);expect(result.deformationMode).toContain(['hair02_ccby_elvs_micky_afro','glasses02_ccby_punkduck_sport_sunglasses'].includes(id)?'head frame':'surface frame');expect(Math.max(...result.max.map(Math.abs),...result.min.map(Math.abs))).toBeLessThan(8);}
   await page.screenshot({path:testInfo.outputPath(`${model}-adaptive-assets.png`)});
   for(const id of ids)await page.evaluate(id=>window.InkAtlasV7Bridge.removeAppearanceAsset(id),id);
-  await expect.poll(()=>page.evaluate(()=>window.InkAtlasV7Bridge.appearanceBodyMaskStats().hiddenTriangles)).toBe(0);expect(errors).toEqual([]);
+  await expect.poll(()=>page.evaluate(()=>window.InkAtlasV7Bridge.appearanceBodyMaskStats().hiddenTriangles)).toBe(baselineMask);expect(errors).toEqual([]);
 });
 
 test('all face-shape choices remain smooth, finite and bounded', async ({page},testInfo)=>{
   test.skip(testInfo.project.name!=='desktop');const errors=[];page.on('pageerror',error=>errors.push(error.message));await openClean(page,'male');
-  for(const selector of ['#v7NoseShape','#v7EarShape','#v7CheekShape']){const values=await page.locator(`${selector} option`).evaluateAll(options=>options.slice(1).map(option=>option.value));for(const value of values){await page.locator(selector).selectOption(value);await expect.poll(()=>page.evaluate(id=>importedRig.anatomyMorphStats(id),value)).not.toBeNull();const result=await page.evaluate(id=>({stats:importedRig.anatomyMorphStats(id),finite:parts.every(part=>Array.from(part.positions).every(Number.isFinite))}),value);expect(result.finite).toBe(true);expect(result.stats.deformationMode).toBe('smooth anatomical field');expect(result.stats.maxDisplacement).toBeLessThan(.05);expect(result.stats.strength).toBeGreaterThan(.1);await page.locator(selector).selectOption('none');}}
+  for(const selector of ['#v7NoseShape','#v7EarShape','#v7CheekShape']){const values=await page.locator(`${selector} option`).evaluateAll(options=>options.slice(1).map(option=>option.value));for(const value of values){await page.locator(selector).selectOption(value);await expect.poll(()=>page.evaluate(id=>importedRig.anatomyMorphStats(id),value)).not.toBeNull();const result=await page.evaluate(id=>({stats:importedRig.anatomyMorphStats(id),finite:parts.every(part=>Array.from(part.positions).every(Number.isFinite))}),value);expect(result.finite).toBe(true);expect(result.stats.deformationMode).toBe('MakeHuman target surface transfer');expect(result.stats.maxDisplacement).toBeLessThan(.08);expect(result.stats.strength).toBeGreaterThan(.1);await page.locator(selector).selectOption('none');}}
   await page.locator('#v7NoseShape').selectOption('nose_elvs_bulbous_nose_1');await page.locator('#v7EarShape').selectOption('ears_elvs_flap_ears_1');await page.locator('#v7CheekShape').selectOption('cheeks_elvs_high_chubby_cheekbones_1');await page.evaluate(()=>window.InkAtlasV7Bridge.focusBodyRegion('head'));await expect(page.locator('#glCanvas')).toHaveScreenshot('bounded-face-shapes.png',{maxDiffPixelRatio:.10});expect(errors).toEqual([]);
 });
 

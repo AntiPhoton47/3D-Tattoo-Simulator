@@ -42,9 +42,9 @@ Placement, procedural generation, project history and uploaded artwork stay in b
 
 ## Model and artwork
 
-The bundled bodies are `assets/male-base-mesh-base_male.glb` and `assets/female-base-mesh-base_female.glb`: 163-bone, MakeHuman-derived base meshes published by Innerscene under CC0. `model-data.js` and `female-model-data.js` contain matching payloads for direct-file use. The wardrobe, hair, grooming and body-detail library is indexed by `appearance-catalog.js` and stored as separately loaded geometry under `assets/appearance-library/`, with resized diffuse images in `assets/appearance-textures/`. All 363 items retain their authored geometry, UVs, material settings and source proxy metadata. Garment, hair and nail vertices are projected onto actual high-resolution body triangles and stored in stable barycentric surface frames, so they follow pose and body-form changes without inheriting collapsed low-resolution reference triangles. Fine facial features use a stable facial frame instead. Occlusion is texture-alpha-aware: opaque garments can mask covered skin, cut-out materials keep their intended openings, and tight bottoms, underlayers, shoes and gloves receive a fitted seam-backing layer to suppress skin poke-through. The starter tattoo library contains only generic, project-authored SVG motifs.
+The bundled bodies are `assets/male-base-mesh-base_male.glb` and `assets/female-base-mesh-base_female.glb`: 163-bone, MakeHuman-derived base meshes published by Innerscene under CC0. `model-data.js` and `female-model-data.js` contain matching payloads for direct-file use. The wardrobe, hair, grooming and body-detail library is indexed by `appearance-catalog.js` and stored as separately loaded geometry under `assets/appearance-library/`, with resized diffuse images in `assets/appearance-textures/`. All 363 items retain their authored geometry, UVs, material settings and source proxy metadata. Each proxy vertex is reconstructed from its original hm08 binding before it is attached to the high-resolution body, so garments and nails remain on the intended anatomical region through pose and body-form changes. Hair, hats and fine facial features use rigid anatomical head frames to preserve loose strands, brims, eyeballs and lashes. Garments receive alpha-aware, fitted colour backings that suppress skin poke-through without deleting approximate patches from the body. The starter tattoo library contains only generic, project-authored SVG motifs.
 
-`anatomy-targets.js` records the supplied MakeHuman nose, ear and cheek targets together with their hm08 source coordinates. The UI applies their named anatomical intent through bounded, smooth deformation fields on the rendered high-resolution face and rejects strengths that would invert or collapse a surface triangle. Hair and nails use projected body-surface attachment; eyes, brows, lashes and facial hair retain a stable facial frame so their fine topology cannot scatter between adjacent eyelid, eyeball and cheek surfaces.
+`anatomy-targets.js` records the supplied MakeHuman nose, ear and cheek targets together with their hm08 source coordinates. The UI transfers them through continuous radial fields on the rendered high-resolution face, synchronises coincident material-seam vertices, moves dependent mouth and eye surfaces with the skin, and rejects strengths that would invert or collapse a surface triangle.
 
 The pose library in `pose-presets.js` adapts shoulders, arm twist, elbows and knees from 117 CC0 BVH files. These are intentionally described as limb-focused adaptations: the app does not claim to reproduce the source poses' spine, hip, hand or root motion.
 
@@ -57,10 +57,11 @@ No package installation is required to run the app. Release and browser checks u
 ```sh
 npm ci
 npm run check
+npm run test:assets
 npm run test:visual
 ```
 
-The release check validates required files, parses JavaScript sources, verifies that both embedded and standalone model payloads agree, and scans release text for common private-path and secret patterns. The visual suite checks desktop, feminine styling, multi-axis posing and mobile layouts against committed baselines.
+The release check validates required files, parses JavaScript sources, verifies that both embedded and standalone model payloads agree, and scans release text for common private-path and secret patterns. The asset audit loads every appearance item on both bundled bodies and checks its fitted geometry for finite, bounded, anatomically plausible placement. The visual suite checks desktop, feminine styling, multi-axis posing and mobile layouts against committed baselines.
 
 ## Known limits
 
