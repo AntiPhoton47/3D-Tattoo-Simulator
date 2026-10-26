@@ -152,7 +152,7 @@ for (const model of ['male','female']) test(`${model} body keeps MakeHuman asset
   await page.waitForTimeout(700);
   const stats=await page.evaluate(ids=>Object.fromEntries(ids.map(id=>[id,window.InkAtlasV7Bridge.appearanceAssetStats(id)])),ids);
   expect(stats.shoes02_ccby_punkduck_comfortable_sneakers.vertices).toBe(1078);
-  for(const [id,result] of Object.entries(stats)){expect(result.bound).toBe(true);expect(result.finite).toBe(true);expect(result.invalidVertices).toBe(0);expect(result.deformationMode).toContain(['hair02_ccby_elvs_micky_afro','glasses02_ccby_punkduck_sport_sunglasses'].includes(id)?'head frame':'surface frame');expect(Math.max(...result.max.map(Math.abs),...result.min.map(Math.abs))).toBeLessThan(8);}
+  for(const [id,result] of Object.entries(stats)){expect(result.bound).toBe(true);expect(result.finite).toBe(true);expect(result.invalidVertices).toBe(0);expect(result.deformationMode).toContain(['hair02_ccby_elvs_micky_afro','glasses02_ccby_punkduck_sport_sunglasses'].includes(id)?'head frame':'body displacement field');expect(Math.max(...result.max.map(Math.abs),...result.min.map(Math.abs))).toBeLessThan(8);}
   await page.screenshot({path:testInfo.outputPath(`${model}-adaptive-assets.png`)});
   for(const id of ids)await page.evaluate(id=>window.InkAtlasV7Bridge.removeAppearanceAsset(id),id);
   await expect.poll(()=>page.evaluate(()=>window.InkAtlasV7Bridge.appearanceBodyMaskStats().hiddenTriangles)).toBe(baselineMask);expect(errors).toEqual([]);
