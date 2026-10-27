@@ -1,6 +1,6 @@
 {
   "name": "ink-atlas",
-  "version": "1.6.1",
+  "version": "1.6.45",
   "private": true,
   "description": "Local-first 3D tattoo placement simulator",
   "scripts": {

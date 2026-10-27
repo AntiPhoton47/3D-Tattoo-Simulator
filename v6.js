@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const appearanceBuildVersion=new URL(document.currentScript?.src||location.href,location.href).searchParams.get('v')||'dev';
   const selectedBodyModel = window.INK_ATLAS_SELECTED_BODY_MODEL === 'female' ? 'female' : 'male';
   const V6 = {
     modelURL: selectedBodyModel === 'female' ? 'assets/female-base-mesh-base_female.glb' : 'assets/male-base-mesh-base_male.glb',
@@ -21,14 +22,16 @@
   const appearanceById = new Map(appearanceCatalog.map(item => [item.id, item]));
   const defaultEyeId=appearanceById.has('makehuman_system_assets_cc0_high_poly')?'makehuman_system_assets_cc0_high_poly':'none';
   window.INK_ATLAS_ASSET_PAYLOADS = window.INK_ATLAS_ASSET_PAYLOADS || {};
-  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, modelType: selectedBodyModel, eyeStyle:defaultEyeId, eyebrowStyle:'none', eyelashStyle:'none', fingerNailStyle:'none', toeNailStyle:'none', noseShape:'none', earShape:'none', cheekShape:'none', eyeColor:'#514c48', clothingXRay: false, renderQuality: 'auto', equippedAssets: defaultEyeId==='none'?[]:[defaultEyeId], ...bodyDefaults };
+  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, lipColor:'#ba9485', lipTonePosition:50, facialHairColor:'#3b2a22', facialHairTonePosition:24, eyebrowColor:'#3b2a22', eyebrowTonePosition:24, eyelashColor:'#171412', eyelashTonePosition:0, modelType: selectedBodyModel, eyeStyle:defaultEyeId, eyebrowStyle:'none', eyelashStyle:'none', fingerNailStyle:'none', toeNailStyle:'none', noseShape:'none', earShape:'none', cheekShape:'none', eyeColor:'#514c48', clothingXRay: false, renderQuality: 'auto', equippedAssets: defaultEyeId==='none'?[]:[defaultEyeId], ...bodyDefaults };
+  const syncNativeEyeVisibility=()=>{window.INK_ATLAS_EXTERNAL_EYES_ACTIVE=(bodySettings.equippedAssets||[]).some(id=>appearanceById.get(id)?.category==='Eyes');};
+  syncNativeEyeVisibility();
   let needsSurfaceCoordinateMigration = true;
   try {
     const storedLayout = JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1') || '{}'), prior = storedLayout.bodySettings;
     needsSurfaceCoordinateMigration = Number(storedLayout.version || 0) < 6.3;
     if (prior && ['balanced', 'athletic', 'broad', 'lean'].includes(prior.profile)) bodySettings.profile = prior.profile;
     if (prior && Number.isFinite(prior.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, prior.heightCm));
-    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
+    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'lipColor', 'lipTonePosition', 'facialHairColor', 'facialHairTonePosition', 'eyebrowColor', 'eyebrowTonePosition', 'eyelashColor', 'eyelashTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
     if (Array.isArray(prior?.equippedAssets)) bodySettings.equippedAssets = prior.equippedAssets.filter(id => appearanceById.has(id)).slice(0, 20);
   } catch (_) {}
   bodySettings.modelType = selectedBodyModel;
@@ -371,7 +374,17 @@
   }
   const colour4 = (hex, alpha=1) => { const value=String(hex||'#333333').replace('#',''),full=value.length===3?value.split('').map(c=>c+c).join(''):value;return [parseInt(full.slice(0,2),16)/255,parseInt(full.slice(2,4),16)/255,parseInt(full.slice(4,6),16)/255,alpha]; };
   function appearancePasses() {
-    return [];
+    const equipped=bodySettings.equippedAssets||[],hairId=equipped.find(id=>appearanceById.get(id)?.category==='Hair'),hatId=equipped.find(id=>appearanceById.get(id)?.category==='Hats');let coverId=hairId;
+    // A close-fitting, tall hat can expose the scalp through an authored crown
+    // opening. Detect that class from its geometry rather than maintaining a
+    // list of asset-specific offsets.
+    if(!coverId&&hatId){const hat=meshAppearanceCache.get(hatId);if(hat){const bounds=positionBounds(hat.restPositions),size=boundsSize(bounds);if(size[1]>.70&&size[0]<.75)coverId=hatId;}}
+    if(!coverId)return [];
+    const average=meshAppearanceCache.get(coverId)?.textureAverage,colour=average?'#'+average.slice(0,3).map(value=>Math.round(clamp(value,0,1)*255).toString(16).padStart(2,'0')).join(''):(hairId?'#35261f':'#3b3b3b');
+    // A close, opaque scalp underlay fills texture cutout gaps at the crown.
+    // It follows the body head mesh, so it cannot float or expose an empty
+    // interior when a hairstyle has sparse roots or a centre part.
+    return [{part:'head',colour,accent:colour,alpha:1,offset:.0015,bounds:[0,1,.78,1]}];
   }
   function renderAppearanceLayers(){
     if(software)return;const passes=appearancePasses();if(!passes.length)return;ensureAppearanceProgram();const pgr=appearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-.8,-.8);
@@ -384,6 +397,9 @@
   let meshAppearanceProgram = null;
   const meshAppearanceCache = new Map();
   const appearanceLoadPromises = new Map();
+  let appearanceFitRevision=1,appearanceRefits=0;
+  const applyPoseBeforeAppearanceCache=applyPose;
+  applyPose=function applyPoseWithAppearanceInvalidation(){appearanceFitRevision++;return applyPoseBeforeAppearanceCache();};
   const baseVertexMapCache = new Map();
   let canonicalBasePositionCache = null;
   function typedArrayFromBase64(encoded, Type) {
@@ -400,7 +416,7 @@
     if (appearanceLoadPromises.has(id)) return appearanceLoadPromises.get(id);
     const item = appearanceById.get(id); if (!item) return Promise.reject(new Error('Unknown appearance asset'));
     const promise = new Promise((resolve, reject) => {
-      const script = document.createElement('script'); script.src = `${item.file}?v=1.6.1`; script.async = true;
+      const script = document.createElement('script'); script.src = `${item.file}?v=${encodeURIComponent(appearanceBuildVersion)}`; script.async = true;
       script.onload = () => { if((bodySettings.equippedAssets||[]).includes(id))updateAppearanceBodyMask();requestDraw();resolve(id); };
       script.onerror = () => { appearanceLoadPromises.delete(id); reject(new Error(`Could not load ${item.name}`)); };
       document.head.append(script);
@@ -409,10 +425,10 @@
   }
   function ensureMeshAppearanceProgram() {
     if (meshAppearanceProgram || software) return;
-    const vertex = `attribute vec3 aPosition;attribute vec3 aNormal;attribute vec2 aUV;uniform mat4 uViewProjection;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){vNormal=aNormal;vPosition=aPosition;vUV=aUV;gl_Position=uViewProjection*vec4(aPosition,1.);}`;
-    const fragment = `precision mediump float;uniform vec4 uColour;uniform vec3 uAccent;uniform vec3 uAtlasFallback;uniform float uFabric;uniform float uUseTexture;uniform float uForceOpaque;uniform float uShininess;uniform float uEye;uniform sampler2D uTexture;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){vec3 n=normalize(vNormal);float key=max(0.,dot(n,normalize(vec3(-.55,.82,1.1))));float fill=max(0.,dot(n,normalize(vec3(.72,.22,.40))));float light=.50+.39*key+.11*fill;float grain=uFabric*.018*sin(vPosition.x*155.)*sin(vPosition.y*190.);vec4 sample=texture2D(uTexture,vUV);float texelVisible=step(.035,sample.a);vec3 sampleColour=mix(uAtlasFallback,sample.rgb,texelVisible);float luma=dot(sampleColour,vec3(.299,.587,.114)),iris=(1.-smoothstep(.28,.70,luma))*uEye;vec3 textured=mix(sampleColour,sampleColour*(uAccent*1.8+.18),iris*.72),plain=mix(uAccent,uColour.rgb,.90+.06*key),colour=mix(plain,textured*uColour.rgb,uUseTexture);float spec=pow(max(0.,dot(reflect(-normalize(vec3(-.55,.82,1.1)),n),normalize(vec3(0.,0.,1.)))),mix(8.,72.,uShininess))*.18*uShininess;float sampledAlpha=mix(sample.a,step(.012,sample.a),step(.2,uFabric)),alpha=uColour.a*mix(1.,sampledAlpha,uUseTexture);alpha=mix(alpha,uColour.a,uForceOpaque);if(alpha<.035)discard;gl_FragColor=vec4(colour*(light+grain)+spec+.018,alpha);}`;
+    const vertex = `attribute vec3 aPosition;attribute vec3 aNormal;attribute vec2 aUV;uniform mat4 uViewProjection;uniform float uDepthBias;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){vNormal=aNormal;vPosition=aPosition;vUV=aUV;gl_Position=uViewProjection*vec4(aPosition,1.);gl_Position.z-=uDepthBias*gl_Position.w;}`;
+    const fragment = `precision mediump float;uniform vec4 uColour;uniform vec3 uAccent;uniform vec3 uAtlasFallback;uniform float uFabric;uniform float uUseTexture;uniform float uForceOpaque;uniform float uShininess;uniform float uEye;uniform sampler2D uTexture;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){vec3 n=normalize(vNormal);float key=max(0.,dot(n,normalize(vec3(-.55,.82,1.1))));float fill=max(0.,dot(n,normalize(vec3(.72,.22,.40))));float light=.50+.39*key+.11*fill;float grain=uFabric*.018*sin(vPosition.x*155.)*sin(vPosition.y*190.);vec4 sample=texture2D(uTexture,vUV);float texelVisible=step(.035,sample.a);vec3 sampleColour=mix(uAtlasFallback,sample.rgb,texelVisible);float luma=dot(sampleColour,vec3(.299,.587,.114));float sourceChroma=max(sampleColour.r,max(sampleColour.g,sampleColour.b))-min(sampleColour.r,min(sampleColour.g,sampleColour.b));float iris=smoothstep(.035,.12,sourceChroma)*(1.-smoothstep(.86,.98,luma))*uEye;vec3 selectedIris=mix(uAccent*.40,uAccent*1.16,clamp(luma*1.45,0.,1.));vec3 textured=mix(sampleColour,selectedIris,iris*.96);vec3 plain=mix(uAccent,uColour.rgb,.90+.06*key),colour=mix(plain,textured*uColour.rgb,uUseTexture);float spec=pow(max(0.,dot(reflect(-normalize(vec3(-.55,.82,1.1)),n),normalize(vec3(0.,0.,1.)))),mix(8.,72.,uShininess))*.18*uShininess;float sampledAlpha=mix(sample.a,step(.012,sample.a),step(.2,uFabric)),alpha=uColour.a*mix(1.,sampledAlpha,uUseTexture);alpha=mix(alpha,uColour.a,uForceOpaque);if(alpha<.035)discard;gl_FragColor=vec4(colour*(light+grain)+spec+.018,alpha);}`;
     const instance = gl.createProgram(); gl.attachShader(instance, shader(gl.VERTEX_SHADER, vertex)); gl.attachShader(instance, shader(gl.FRAGMENT_SHADER, fragment)); gl.linkProgram(instance);
-    meshAppearanceProgram = { instance, pos:gl.getAttribLocation(instance,'aPosition'), norm:gl.getAttribLocation(instance,'aNormal'), uv:gl.getAttribLocation(instance,'aUV'), vp:gl.getUniformLocation(instance,'uViewProjection'), colour:gl.getUniformLocation(instance,'uColour'), accent:gl.getUniformLocation(instance,'uAccent'), atlasFallback:gl.getUniformLocation(instance,'uAtlasFallback'), fabric:gl.getUniformLocation(instance,'uFabric'), useTexture:gl.getUniformLocation(instance,'uUseTexture'), forceOpaque:gl.getUniformLocation(instance,'uForceOpaque'), shininess:gl.getUniformLocation(instance,'uShininess'), eye:gl.getUniformLocation(instance,'uEye'), texture:gl.getUniformLocation(instance,'uTexture') };
+    meshAppearanceProgram = { instance, pos:gl.getAttribLocation(instance,'aPosition'), norm:gl.getAttribLocation(instance,'aNormal'), uv:gl.getAttribLocation(instance,'aUV'), vp:gl.getUniformLocation(instance,'uViewProjection'), depthBias:gl.getUniformLocation(instance,'uDepthBias'), colour:gl.getUniformLocation(instance,'uColour'), accent:gl.getUniformLocation(instance,'uAccent'), atlasFallback:gl.getUniformLocation(instance,'uAtlasFallback'), fabric:gl.getUniformLocation(instance,'uFabric'), useTexture:gl.getUniformLocation(instance,'uUseTexture'), forceOpaque:gl.getUniformLocation(instance,'uForceOpaque'), shininess:gl.getUniformLocation(instance,'uShininess'), eye:gl.getUniformLocation(instance,'uEye'), texture:gl.getUniformLocation(instance,'uTexture') };
   }
   function ensureMeshAppearanceAsset(id) {
     if (meshAppearanceCache.has(id)) return meshAppearanceCache.get(id);
@@ -422,7 +438,6 @@
       const quantized = typedArrayFromBase64(raw.positions, Uint16Array); restPositions = new Float32Array(quantized.length);
       for (let i = 0; i < quantized.length; i++) restPositions[i] = raw.positionMin[i % 3] + quantized[i] * raw.positionScale[i % 3];
     } else restPositions = typedArrayFromBase64(raw.positions, Float32Array);
-    if(catalog?.category==='Eyes'&&/high_poly/.test(id)){const centres={left:[0,0,0,0],right:[0,0,0,0]};for(let at=0;at<restPositions.length;at+=3){const group=restPositions[at]<0?centres.left:centres.right;group[0]+=restPositions[at];group[1]+=restPositions[at+1];group[2]+=restPositions[at+2];group[3]++;}for(const group of Object.values(centres))if(group[3])for(let axis=0;axis<3;axis++)group[axis]/=group[3];for(let at=0;at<restPositions.length;at+=3){const group=restPositions[at]<0?centres.left:centres.right,target=[group[0]*1.08,group[1]+.035,group[2]-.022];for(let axis=0;axis<3;axis++)restPositions[at+axis]=target[axis]+(restPositions[at+axis]-group[axis])*.68;}}
     const indices = typedArrayFromBase64(raw.indices, raw.indexType === 'u32' ? Uint32Array : Uint16Array);
     let uvs=new Float32Array(restPositions.length/3*2);if(raw.uvs){const encodedUV=typedArrayFromBase64(raw.uvs,Uint16Array);for(let i=0;i<encodedUV.length;i++)uvs[i]=encodedUV[i]/65535;}
     let bindOffsets=null;if(raw.bindOffsets){const encoded=typedArrayFromBase64(raw.bindOffsets,raw.bindOffsetType==='q8'?Uint8Array:Uint16Array);bindOffsets=new Float32Array(encoded.length);for(let i=0;i<encoded.length;i++)bindOffsets[i]=raw.bindOffsetMin[i%3]+encoded[i]*raw.bindOffsetScale[i%3];}
@@ -438,24 +453,147 @@
     const x=scale(first,1/length1),n=scale(normalRaw,1/normalLength),y=normal(cross(n,x)),length2=Math.max(1e-7,Math.abs(dot(second,y)));
     return {x,y,n,sx:length1,sy:length2};
   }
+  function outwardAttachmentFrame(points,anchor){
+    let frame=attachmentFrame(points),outward;
+    // Around the head, a horizontal body-axis heuristic cannot distinguish an
+    // outward chin normal from an inward one.  Orient the frame from the posed
+    // head centre so scalp, cheeks and the underside of the jaw all receive a
+    // coherent three-dimensional outward direction.
+    if(anchor[1]>2.05&&partById.head?.positions)outward=sub(anchor,positionBounds(partById.head.positions).center);
+    else outward=[anchor[0],0,anchor[2]];
+    let length=Math.hypot(...outward);
+    if(length<.08){outward=[0,anchor[1]>=2.35?1:-1,0];length=1;}
+    if(dot(frame.n,outward)<0)frame={...frame,y:scale(frame.y,-1),n:scale(frame.n,-1)};
+    return frame;
+  }
   function meshBindingWeights(mesh,at){const divisor=mesh.bindWeightDivisor||255,weights=[mesh.bindWeights[at]/divisor,mesh.bindWeights[at+1]/divisor,mesh.bindWeights[at+2]/divisor],total=weights[0]+weights[1]+weights[2]||1;return weights.map(value=>value/total);}
   function meshProxyScales(mesh,baseMap,pointAt){
     return [0,1,2].map(axis=>{const ref=mesh.bindScaleRefs?.[axis];if(!ref||ref.length<3||ref[2]===0)return mesh.bindCanonicalScale;const first=baseMap[ref[0]],second=baseMap[ref[1]];if(first===undefined||second===undefined)return mesh.bindCanonicalScale;const a=pointAt(first),b=pointAt(second),value=Math.abs(a[axis]-b[axis])/Math.abs(ref[2]);return Number.isFinite(value)&&value>1e-8?value:mesh.bindCanonicalScale;});
   }
-  function appearanceClearance(category){if(['Eyes','Eyebrows','Eyelashes','Finger nails','Toe nails','Facial hair'].includes(category))return .0008;if(['Hair','Hats','Eyewear'].includes(category))return .0025;if(['Tops','Dresses','Bottoms','Skirts','Underlayers','Shoes','Gloves'].includes(category))return .035;return .010;}
+  function appearanceClearance(category){return {Eyes:.0008,Eyebrows:.0015,Eyelashes:.0015,'Finger nails':.005,'Toe nails':.005,'Facial hair':.0008,Hair:.0025,Hats:.0025,Eyewear:.0025,Underlayers:.004,Tops:.011,Dresses:.014,Bottoms:.013,Skirts:.016,Shoes:.016,Gloves:.012}[category]??.006;}
   function proxyGuidePoint(mesh,vertex,canonical){const at=vertex*3;if(!canonical||!mesh.bindIndices||!mesh.bindWeights)return [mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]];const weights=meshBindingWeights(mesh,at),point=[0,0,0];for(let corner=0;corner<3;corner++){const source=mesh.bindIndices[at+corner]*3;if(source+2>=canonical.length)continue;for(let axis=0;axis<3;axis++)point[axis]+=canonical[source+axis]*weights[corner];}return point;}
   function prepareSurfaceBindings(mesh) {
     if (!importedRig?.surfaceAttachment || !importedRig.neutralPoint) return false;
     if (mesh.bindRig === importedRig && mesh.bindSurfaceIndices) return true;
     const count=mesh.restPositions.length/3,indices=new Uint32Array(count*3),weights=new Float32Array(count*3),offsets=new Float32Array(count*3),signs=new Int8Array(count),distances=new Float32Array(count),neutralAnchors=new Float32Array(count*3),guidePositions=new Float32Array(count*3),fittedRest=new Float32Array(count*3),sourceErrors=[],clearance=appearanceClearance(mesh.catalog?.category),canonical=canonicalBasePositions();
     for(let vertex=0;vertex<count;vertex++){
-      const at=vertex*3,rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],guide=proxyGuidePoint(mesh,vertex,canonical),attachment=importedRig.surfaceAttachment(guide);if(!attachment)return false;indices.set(attachment.ids,at);weights.set(attachment.weights,at);guidePositions.set(guide,at);const points=attachment.ids.map(index=>importedRig.neutralPoint(index)),anchor=[0,0,0];for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*attachment.weights[corner];let frame=attachmentFrame(points),offset=sub(rest,guide),sign=dot(offset,frame.n)<0?-1:1;if(sign<0)frame={...frame,y:scale(frame.y,-1),n:scale(frame.n,-1)};let local=[dot(offset,frame.x),dot(offset,frame.y),dot(offset,frame.n)];if(Math.abs(local[2])<clearance)local[2]=clearance;const expected=[anchor[0]+frame.x[0]*local[0]+frame.y[0]*local[1]+frame.n[0]*local[2],anchor[1]+frame.x[1]*local[0]+frame.y[1]*local[1]+frame.n[1]*local[2],anchor[2]+frame.x[2]*local[0]+frame.y[2]*local[1]+frame.n[2]*local[2]];offsets.set(local,at);signs[vertex]=sign;distances[vertex]=Math.hypot(...offset);neutralAnchors.set(anchor,at);fittedRest.set(expected,at);sourceErrors.push(Math.hypot(expected[0]-rest[0],expected[1]-rest[1],expected[2]-rest[2]));
+      const at=vertex*3,rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],guide=proxyGuidePoint(mesh,vertex,canonical),attachment=importedRig.surfaceAttachment(guide);if(!attachment)return false;indices.set(attachment.ids,at);weights.set(attachment.weights,at);guidePositions.set(guide,at);const points=attachment.ids.map(index=>importedRig.neutralPoint(index)),anchor=[0,0,0];for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*attachment.weights[corner];const frame=outwardAttachmentFrame(points,anchor),offset=sub(rest,guide),sign=1,local=[dot(offset,frame.x),dot(offset,frame.y),Math.max(clearance,dot(offset,frame.n))],expected=[anchor[0]+frame.x[0]*local[0]+frame.y[0]*local[1]+frame.n[0]*local[2],anchor[1]+frame.x[1]*local[0]+frame.y[1]*local[1]+frame.n[1]*local[2],anchor[2]+frame.x[2]*local[0]+frame.y[2]*local[1]+frame.n[2]*local[2]];offsets.set(local,at);signs[vertex]=sign;distances[vertex]=Math.hypot(...offset);neutralAnchors.set(anchor,at);fittedRest.set(expected,at);sourceErrors.push(Math.hypot(expected[0]-rest[0],expected[1]-rest[1],expected[2]-rest[2]));
     }
     sourceErrors.sort((a,b)=>a-b);mesh.bindRig=importedRig;mesh.bindSurfaceIndices=indices;mesh.bindSurfaceWeights=weights;mesh.bindFrameSigns=signs;mesh.bindSurfaceDistances=distances;mesh.bindLocalOffsets=offsets;mesh.bindNeutralAnchors=neutralAnchors;mesh.bindGuidePositions=guidePositions;mesh.bindRestPositions=fittedRest;mesh.bindSourceError={median:sourceErrors[Math.floor(sourceErrors.length*.5)]||0,p95:sourceErrors[Math.floor(sourceErrors.length*.95)]||0,max:sourceErrors.at(-1)||0};return true;
   }
   function blendPoint(a,b,t){return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];}
-  const rigidHeadCategories=new Set(['Eyes','Eyebrows','Eyelashes','Facial hair','Hair','Hats','Eyewear']),pairedHeadCategories=new Set(['Eyes','Eyebrows','Eyelashes','Eyewear']);
+  // Only objects whose authored shape must remain rigid use landmark frames.
+  // Surface-bound details and grooming assets use their MakeHuman proxy data,
+  // so the same face and body deformation reaches the asset vertex-for-vertex.
+  const rigidHeadCategories=new Set(['Eyes','Eyebrows','Eyelashes','Eyewear','Hats']),pairedHeadCategories=new Set(['Eyes','Eyebrows','Eyelashes','Eyewear']);
   function median(values){if(!values.length)return 0;values.sort((a,b)=>a-b);return values[Math.floor(values.length/2)];}
+  function percentile(values,fraction){if(!values.length)return 0;values.sort((a,b)=>a-b);return values[Math.max(0,Math.min(values.length-1,Math.floor((values.length-1)*fraction)))];}
+  function positionBounds(values){const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(let at=0;at<values.length;at+=3)for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],values[at+axis]);max[axis]=Math.max(max[axis],values[at+axis]);}return {min,max,center:min.map((value,axis)=>(value+max[axis])*.5)};}
+  function sideBounds(values,side){const selected=[],sign=side==='left'?-1:1;for(let at=0;at<values.length;at+=3)if(values[at]*sign>0)selected.push(values[at],values[at+1],values[at+2]);return selected.length?positionBounds(selected):null;}
+  function boundsSize(bounds){return bounds.min.map((value,axis)=>Math.max(1e-5,bounds.max[axis]-value));}
+  function alignEyesToSockets(mesh){
+    const sockets=partById.eyes?.positions;if(!sockets)return 0;let largest=0;
+    for(const side of ['left','right']){
+      const source=sideBounds(mesh.positions,side),target=sideBounds(sockets,side);if(!source||!target)continue;const sourceSize=boundsSize(source),targetSize=boundsSize(target),scaleByAxis=targetSize.map((value,axis)=>clamp(value/sourceSize[axis],.55,2.2));
+      for(let at=0;at<mesh.positions.length;at+=3){if((mesh.positions[at]<0?'left':'right')!==side)continue;for(let axis=0;axis<3;axis++){const value=target.center[axis]+(mesh.positions[at+axis]-source.center[axis])*scaleByAxis[axis];largest=Math.max(largest,Math.abs(value-mesh.positions[at+axis]));mesh.positions[at+axis]=value;}}
+    }
+    return largest;
+  }
+  function alignPeriocularAsset(mesh){
+    const sockets=partById.eyes?.positions;if(!sockets)return 0;let largest=0;const eyebrow=mesh.catalog?.category==='Eyebrows',eyelash=mesh.catalog?.category==='Eyelashes';
+    for(const side of ['left','right']){
+      const source=sideBounds(mesh.positions,side),eye=sideBounds(sockets,side);if(!source||!eye)continue;const sourceSize=boundsSize(source),eyeSize=boundsSize(eye),uniform=clamp(eyeSize[0]*(eyebrow?1.14:1.04)/sourceSize[0],.68,1.45),targetY=eyebrow?eye.max[1]+eyeSize[1]*.43:eye.center[1]+eyeSize[1]*.05,scaledFront=source.center[2]+(source.max[2]-source.center[2])*uniform,targetFront=eye.max[2]+(eyelash ? .002 : 0),translation=[eye.center[0]-source.center[0],targetY-source.center[1],eyelash?targetFront-scaledFront:0];
+      for(let at=0;at<mesh.positions.length;at+=3){if((mesh.positions[at]<0?'left':'right')!==side)continue;for(let axis=0;axis<3;axis++){const scaled=source.center[axis]+(mesh.positions[at+axis]-source.center[axis])*uniform,value=scaled+translation[axis];largest=Math.max(largest,Math.abs(value-mesh.positions[at+axis]));mesh.positions[at+axis]=value;}}
+    }
+    return largest;
+  }
+  function alignEyewearToFace(mesh){
+    const eyes=partById.eyes?.positions,ears=bodyPrimitiveBounds('earSkin'),head=partById.head?.positions;if(!eyes||!head)return 0;const eyeBounds=positionBounds(eyes),eyeSize=boundsSize(eyeBounds),source=positionBounds(mesh.positions),sourceSize=boundsSize(source),earWidth=ears?ears.max[0]-ears.min[0]:positionBounds(head).max[0]*2,frontSource=[];
+    for(let at=0;at<mesh.positions.length;at+=3)if(mesh.positions[at+2]>source.center[2]&&mesh.positions[at+1]>source.min[1]+sourceSize[1]*.18)frontSource.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);
+    const lensSource=frontSource.length?positionBounds(frontSource):source,lensWidth=Math.max(.001,lensSource.max[0]-lensSource.min[0]),templeScale=earWidth*.94/sourceSize[0],lensScale=eyeSize[0]*1.22/lensWidth,uniform=clamp(median([templeScale,lensScale]),.72,1.34),faceFront=[];
+    for(let at=0;at<head.length;at+=3)if(head[at+1]>eyeBounds.min[1]-.05&&head[at+1]<eyeBounds.max[1]+.09&&Math.abs(head[at]-eyeBounds.center[0])<eyeSize[0]*.68)faceFront.push(head[at+2]);
+    const targetFront=(faceFront.length?percentile(faceFront,.94):eyeBounds.max[2])+.014,scaledFront=source.center[2]+(lensSource.max[2]-source.center[2])*uniform,translation=[eyeBounds.center[0]-source.center[0],eyeBounds.center[1]+.008-source.center[1],targetFront-scaledFront];let largest=0;
+    for(let at=0;at<mesh.positions.length;at+=3)for(let axis=0;axis<3;axis++){const value=source.center[axis]+(mesh.positions[at+axis]-source.center[axis])*uniform+translation[axis];largest=Math.max(largest,Math.abs(value-mesh.positions[at+axis]));mesh.positions[at+axis]=value;}
+    if(mesh.bindSurfaceIndices){const corrections=[];for(let vertex=0;vertex<mesh.positions.length/3;vertex++){const at=vertex*3,anchor=currentSurfaceAnchor(mesh,at),points=[0,1,2].map(corner=>importedRig.worldPoint(mesh.bindSurfaceIndices[at+corner])),frame=outwardAttachmentFrame(points,anchor);if(Math.abs(anchor[0]-eyeBounds.center[0])>eyeSize[0]*.75||anchor[1]<eyeBounds.min[1]-.08||anchor[1]>eyeBounds.max[1]+.12||frame.n[2]<.35)continue;const distance=dot(sub([mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]],anchor),frame.n);corrections.push((.008-distance)/frame.n[2]);}const forward=clamp(percentile(corrections,.90),0,.065);if(forward){for(let at=2;at<mesh.positions.length;at+=3)mesh.positions[at]+=forward;largest=Math.max(largest,forward);}}
+    return largest;
+  }
+  function currentSurfaceAnchor(mesh,at){const anchor=[0,0,0];for(let corner=0;corner<3;corner++){const point=importedRig.worldPoint(mesh.bindSurfaceIndices[at+corner]),weight=mesh.bindSurfaceWeights[at+corner];for(let axis=0;axis<3;axis++)anchor[axis]+=point[axis]*weight;}return anchor;}
+  function fitRigidHatToHead(mesh){
+    const headPart=partById.head;if(!headPart?.restPositions||!headPart.positions)return null;
+    const neutral=positionBounds(headPart.restPositions),current=positionBounds(headPart.positions),neutralSize=boundsSize(neutral),currentSize=boundsSize(current);
+    // A hat is a rigid manufactured object. Follow the head with one uniform
+    // scale and a translation, preserving the authored crown, brim and any
+    // disconnected ribbons instead of pulling each vertex toward the scalp.
+    const uniform=clamp(median([currentSize[0]/neutralSize[0],currentSize[1]/neutralSize[1],currentSize[2]/neutralSize[2]]),.78,1.22),translation=current.center.map((value,axis)=>value-neutral.center[axis]*uniform);let maxMotion=0,invalid=0;
+    for(let at=0;at<mesh.restPositions.length;at+=3)for(let axis=0;axis<3;axis++){const value=mesh.restPositions[at+axis]*uniform+translation[axis];mesh.positions[at+axis]=value;maxMotion=Math.max(maxMotion,Math.abs(value-mesh.restPositions[at+axis]));if(!Number.isFinite(value))invalid++;}
+    return {maxMotion,invalid:invalid/3,uniform};
+  }
+  function seatRigidHatOnScalp(mesh){
+    const headPart=partById.head,head=headPart&&positionBounds(headPart.positions);if(!head||!mesh.bindSurfaceIndices||!mesh.bindNeutralAnchors)return 0;const neutralTop=positionBounds(headPart.restPositions).max[1],candidates=[];
+    // Fit the rigid hat from signed scalp-normal distance, not from a vertical
+    // bounding box. Crown-facing samples distinguish actual contact surfaces
+    // from brims, veils, feathers and long decorative pieces.
+    for(let vertex=0;vertex<mesh.positions.length/3;vertex++){const at=vertex*3;if(mesh.bindNeutralAnchors[at+1]<neutralTop-.38)continue;const anchor=currentSurfaceAnchor(mesh,at),points=[0,1,2].map(corner=>importedRig.worldPoint(mesh.bindSurfaceIndices[at+corner])),frame=outwardAttachmentFrame(points,anchor);if(anchor[1]<head.max[1]-.42||frame.n[1]<.28)continue;const position=[mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]],distance=dot(sub(position,anchor),frame.n);candidates.push({sourceDistance:mesh.bindSurfaceDistances?.[vertex]??Infinity,required:(.008-distance)/frame.n[1]});}
+    if(candidates.length<8)return 0;const contactLimit=percentile(candidates.map(item=>item.sourceDistance),.18)+.012,required=candidates.filter(item=>item.sourceDistance<=contactLimit).map(item=>item.required);if(required.length<4)return 0;
+    // The attachment proxy describes the bare scalp, while a real hat settles
+    // slightly into hair and the soft tissue at the crown.  Seating directly
+    // on the proxy percentile leaves wide-brimmed hats visibly suspended.  A
+    // small, uniform settling allowance keeps the object rigid and avoids the
+    // old per-vertex hat deformation.
+    let correction=clamp(percentile(required,.86),-.22,.22)-.035;
+    // Compact brimmed hats must never be seated through the brow just because
+    // a brim vertex happens to be the closest proxy sample.  Use the head
+    // height as an anatomical lower bound while leaving long caps, veils and
+    // slouch styles free to extend down the sides of the head.
+    const before=positionBounds(mesh.positions),height=before.max[1]-before.min[1],width=before.max[0]-before.min[0],wideBrim=width>height*1.35,foreheadFloor=head.max[1]-(wideBrim ? .37 : .30);if(height<.68)correction=Math.max(correction,foreheadFloor-before.min[1]);
+    correction=clamp(correction,wideBrim?-.26:-.22,.26);for(let at=1;at<mesh.positions.length;at+=3)mesh.positions[at]+=correction;return Math.abs(correction);
+  }
+  function alignHairToScalp(mesh){
+    const head=partById.head&&positionBounds(partById.head.positions);if(!head||!mesh.bindSurfaceIndices)return 0;const gaps=[];for(let vertex=0;vertex<mesh.positions.length/3;vertex++){const at=vertex*3,anchor=currentSurfaceAnchor(mesh,at);if(anchor[1]<head.max[1]-.43)continue;gaps.push(mesh.positions[at+1]-anchor[1]);}const correction=gaps.length?clamp(.012-percentile(gaps,.08),-.34,.34):0,bounds=positionBounds(mesh.positions),xCorrection=clamp(head.center[0]-bounds.center[0],-.12,.12);
+    for(let at=0;at<mesh.positions.length;at+=3){mesh.positions[at]+=xCorrection;mesh.positions[at+1]+=correction;}
+    return Math.max(Math.abs(correction),Math.abs(xCorrection));
+  }
+  function enforceSurfaceClearance(mesh,minDistance,maxCorrection,accept=()=>true){
+    if(!mesh.bindSurfaceIndices)return 0;let largest=0;
+    for(let vertex=0;vertex<mesh.positions.length/3;vertex++){const at=vertex*3,anchor=currentSurfaceAnchor(mesh,at);if(!accept(anchor))continue;const points=[0,1,2].map(corner=>importedRig.worldPoint(mesh.bindSurfaceIndices[at+corner])),frame=outwardAttachmentFrame(points,anchor),position=[mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]],distance=dot(sub(position,anchor),frame.n),correction=clamp(minDistance-distance,0,maxCorrection);if(!correction)continue;for(let axis=0;axis<3;axis++)mesh.positions[at+axis]+=frame.n[axis]*correction;largest=Math.max(largest,correction);}
+    return largest;
+  }
+  function enforceFaceForwardClearance(mesh,minDistance=.010,maxCorrection=.120){
+    const head=partById.head?.positions;if(!head)return 0;const cell=.03,bins=new Map(),key=(x,y)=>`${Math.floor(x/cell)},${Math.floor(y/cell)}`;let largest=0,maxRequired=0,adjusted=0;
+    // Jaw and under-chin triangles legitimately point downwards, but a beard is
+    // still a visible layer over the front of that surface. A normal-only
+    // offset can therefore move the central beard down while leaving it behind
+    // the face. Build a small XY depth field from the *current deformed head*
+    // and place facial hair in front of that local envelope. This remains valid
+    // for both body models and after cheek, mouth and jaw changes, even when a
+    // proxy vertex was originally bound to the underside of the chin.
+    for(let at=0;at<head.length;at+=3){const id=key(head[at],head[at+1]),front=bins.get(id);if(front===undefined||head[at+2]>front)bins.set(id,head[at+2]);}
+    for(let at=0;at<mesh.positions.length;at+=3){if(mesh.positions[at+1]<2.08)continue;const cx=Math.floor(mesh.positions[at]/cell),cy=Math.floor(mesh.positions[at+1]/cell);let front=-Infinity;for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const value=bins.get(`${cx+dx},${cy+dy}`);if(value!==undefined)front=Math.max(front,value);}if(!Number.isFinite(front))continue;const required=front+minDistance-mesh.positions[at+2];maxRequired=Math.max(maxRequired,required);const correction=clamp(required,0,maxCorrection);if(!correction)continue;mesh.positions[at+2]+=correction;adjusted++;largest=Math.max(largest,correction);}if(mesh.fitStats){mesh.fitStats.faceForwardAdjusted=adjusted;mesh.fitStats.faceForwardRequired=maxRequired;}
+    return largest;
+  }
+  function alignShoesToFeet(mesh){
+    let largest=0;
+    for(const side of ['left','right']){
+      const foot=partById[side+'_foot'];if(!foot)continue;const footBounds=positionBounds(foot.positions),indices=[],sign=side==='left'?-1:1;
+      for(let at=0;at<mesh.positions.length;at+=3)if((mesh.restPositions[at]||mesh.positions[at])*sign>=0)indices.push(at);
+      if(!indices.length)continue;const values=[];for(const at of indices)values.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);const shoeBounds=positionBounds(values),shoeWidth=Math.max(.001,shoeBounds.max[0]-shoeBounds.min[0]),shoeDepth=Math.max(.001,shoeBounds.max[2]-shoeBounds.min[2]),footWidth=footBounds.max[0]-footBounds.min[0],footDepth=footBounds.max[2]-footBounds.min[2],scaleX=clamp((footWidth+.055)/shoeWidth,.82,1.18),scaleZ=clamp((footDepth+.12)/shoeDepth,.82,1.20),targetY=footBounds.min[1]-.018,moveY=clamp(targetY-shoeBounds.min[1],-.22,.22),targetZ=footBounds.center[2]+.025;
+      for(const at of indices){const x=footBounds.center[0]+(mesh.positions[at]-shoeBounds.center[0])*scaleX,z=targetZ+(mesh.positions[at+2]-shoeBounds.center[2])*scaleZ;largest=Math.max(largest,Math.abs(x-mesh.positions[at]),Math.abs(moveY),Math.abs(z-mesh.positions[at+2]));mesh.positions[at]=x;mesh.positions[at+1]+=moveY;mesh.positions[at+2]=z;}
+    }
+    return largest;
+  }
+  function alignGlovesToHands(mesh){
+    let largest=0;
+    for(const side of ['left','right']){
+      const limb=partById[side+'_forearm'];if(!limb)continue;const limbBounds=positionBounds(limb.positions),sign=side==='left'?-1:1,targetValues=[],indices=[];
+      const distal=side==='left'?limbBounds.max[0]-(limbBounds.max[0]-limbBounds.min[0])*.52:limbBounds.min[0]+(limbBounds.max[0]-limbBounds.min[0])*.52;
+      for(let at=0;at<limb.positions.length;at+=3)if(side==='left'?limb.positions[at]<distal:limb.positions[at]>distal)targetValues.push(limb.positions[at],limb.positions[at+1],limb.positions[at+2]);
+      for(let at=0;at<mesh.positions.length;at+=3)if((mesh.restPositions[at]||mesh.positions[at])*sign>=0)indices.push(at);
+      if(!indices.length||targetValues.length<9)continue;const sourceValues=[];for(const at of indices)sourceValues.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);const source=positionBounds(sourceValues),target=positionBounds(targetValues),sourceSize=boundsSize(source),targetSize=boundsSize(target),scales=targetSize.map((value,axis)=>clamp((value+(axis===0?.10:.025))/sourceSize[axis],.78,1.34)),targetCenter=[target.center[0]-sign*.05,target.center[1],target.center[2]];
+      for(const at of indices)for(let axis=0;axis<3;axis++){const value=targetCenter[axis]+(mesh.positions[at+axis]-source.center[axis])*scales[axis];largest=Math.max(largest,Math.abs(value-mesh.positions[at+axis]));mesh.positions[at+axis]=value;}
+    }
+    return largest;
+  }
+  function bodyPrimitiveBounds(kind){const values=[];for(let vertex=0;vertex<(importedRig?.vertexCount||0);vertex++)if(importedRig.primitiveKind?.(vertex)===kind)values.push(...importedRig.worldPoint(vertex));return values.length?positionBounds(values):null;}
   function transformAppearancePoint(id, point) {
     let p=point.slice(), x=p[0], y=p[1], z=p[2], side=x<0?-1:1, ax=Math.abs(x), isShirt=id.startsWith('shirt_');
     const female=bodySettings.modelType==='female',base=female?{chest:91,waist:74,shoulders:39}:{chest:96,waist:82,shoulders:44},safe=(value,baseline,strength=.64)=>clamp(1+(((Number(value)||baseline)/baseline)-1)*strength,.84,1.19);
@@ -473,41 +611,213 @@
     }
     const heightScale=clamp((Number(bodySettings.heightCm)||178)/178,.78,1.22);p[1]=(p[1]+3.41)*heightScale-3.41;return p;
   }
+  function updateMakeHumanBoundAsset(mesh){
+    // Footwear contains thick soles and disconnected decorative panels; a
+    // per-vertex proxy refit can shear those pieces apart. Keep its authored
+    // topology and transfer the body's deformation field instead.
+    if(['Shoes','Gloves'].includes(mesh.catalog?.category)||rigidHeadCategories.has(mesh.catalog?.category))return false;
+    const map=baseVertexMap();if(!importedRig?.worldPoint||!map||!mesh.bindIndices||!mesh.bindWeights||!mesh.bindOffsets)return false;
+    const pointAt=baseVertex=>{const mapped=map[baseVertex];return mapped===undefined?null:importedRig.worldPoint(mapped);},scales=meshProxyScales(mesh,map,index=>importedRig.worldPoint(index));
+    let invalid=0,maxMotion=0,maxOffset=0;
+    for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){
+      const at=vertex*3,weights=meshBindingWeights(mesh,at),anchor=[0,0,0];let valid=true;
+      for(let corner=0;corner<3;corner++){const point=pointAt(mesh.bindIndices[at+corner]);if(!point){valid=false;break;}for(let axis=0;axis<3;axis++)anchor[axis]+=point[axis]*weights[corner];}
+      if(!valid){invalid++;continue;}
+      for(let axis=0;axis<3;axis++){const offset=mesh.bindOffsets[at+axis]*scales[axis],value=anchor[axis]+offset;mesh.positions[at+axis]=value;maxOffset=Math.max(maxOffset,Math.abs(offset));maxMotion=Math.max(maxMotion,Math.abs(value-mesh.restPositions[at+axis]));if(!Number.isFinite(value))invalid++;}
+    }
+    mesh.fitStats={bound:true,deformationMode:'MakeHuman proxy binding',maxMotion,maxOffset,maxClearanceCorrection:0,invalidVertices:invalid,sourceError:null};return true;
+  }
+  function regularizeProxyDeformation(mesh,passes=2,strength=.45){
+    const neutral=mesh.restPositions;if(!mesh.vertexNeighbours){const neighbours=Array.from({length:mesh.positions.length/3},()=>new Set());for(let at=0;at<mesh.indices.length;at+=3){const a=mesh.indices[at],b=mesh.indices[at+1],c=mesh.indices[at+2];neighbours[a].add(b).add(c);neighbours[b].add(a).add(c);neighbours[c].add(a).add(b);}mesh.vertexNeighbours=neighbours.map(set=>[...set]);}
+    let field=new Float32Array(mesh.positions.length);for(let at=0;at<field.length;at++)field[at]=mesh.positions[at]-neutral[at];
+    for(let pass=0;pass<passes;pass++){const next=field.slice();for(let vertex=0;vertex<mesh.vertexNeighbours.length;vertex++){const neighbours=mesh.vertexNeighbours[vertex];if(neighbours.length<2)continue;const at=vertex*3;for(let axis=0;axis<3;axis++){let average=0;for(const other of neighbours)average+=field[other*3+axis];average/=neighbours.length;next[at+axis]=field[at+axis]+(average-field[at+axis])*strength;}}field=next;}
+    let largest=0;for(let at=0;at<mesh.positions.length;at++){const value=neutral[at]+field[at];largest=Math.max(largest,Math.abs(value-mesh.positions[at]));mesh.positions[at]=value;}return largest;
+  }
+  function meshTopologyComponents(mesh){
+    if(mesh.topologyComponents)return mesh.topologyComponents;const neighbours=Array.from({length:mesh.positions.length/3},()=>[]);for(let at=0;at<mesh.indices.length;at+=3){const ids=[mesh.indices[at],mesh.indices[at+1],mesh.indices[at+2]];for(let i=0;i<3;i++)for(let j=i+1;j<3;j++){neighbours[ids[i]].push(ids[j]);neighbours[ids[j]].push(ids[i]);}}const seen=new Uint8Array(neighbours.length),components=[];for(let start=0;start<neighbours.length;start++){if(seen[start])continue;const stack=[start],component=[];seen[start]=1;while(stack.length){const vertex=stack.pop();component.push(vertex);for(const other of neighbours[vertex])if(!seen[other]){seen[other]=1;stack.push(other);}}if(component.length>=3)components.push(component);}return mesh.topologyComponents=components;
+  }
+  function detailComponentFrame(vertices,pointAt,basis=null){
+    const origin=[0,0,0];for(const vertex of vertices){const point=pointAt(vertex);for(let axis=0;axis<3;axis++)origin[axis]+=point[axis]/vertices.length;}
+    if(!basis){let first=vertices[0],firstDistance=-1;for(const vertex of vertices){const distance=Math.hypot(...sub(pointAt(vertex),origin));if(distance>firstDistance){first=vertex;firstDistance=distance;}}let second=first,secondDistance=-1;for(const vertex of vertices){const distance=Math.hypot(...sub(pointAt(vertex),pointAt(first)));if(distance>secondDistance){second=vertex;secondDistance=distance;}}const primary=normal(sub(pointAt(second),pointAt(first)));let third=first,thirdDistance=-1;for(const vertex of vertices){const delta=sub(pointAt(vertex),origin),perpendicular=sub(delta,scale(primary,dot(delta,primary))),distance=Math.hypot(...perpendicular);if(distance>thirdDistance){third=vertex;thirdDistance=distance;}}basis=[first,second,third];}
+    const primary=normal(sub(pointAt(basis[1]),pointAt(basis[0]))),thirdDelta=sub(pointAt(basis[2]),origin),secondary=normal(sub(thirdDelta,scale(primary,dot(thirdDelta,primary)))),tertiary=normal(cross(primary,secondary)),axes=[primary,secondary,tertiary],min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
+    for(const vertex of vertices){const delta=sub(pointAt(vertex),origin);for(let axis=0;axis<3;axis++){const value=dot(delta,axes[axis]);min[axis]=Math.min(min[axis],value);max[axis]=Math.max(max[axis],value);}}
+    return {origin,axes,extent:max.map((value,axis)=>Math.max(1e-6,value-min[axis])),basis};
+  }
+  const nativeDetailComponentCache=new Map();
+  function nativeDetailComponents(kind){
+    let cached=nativeDetailComponentCache.get(kind),components=cached?.rig===importedRig?cached.components:null;
+    if(!components){
+      const selected=new Uint8Array(importedRig.vertexCount),neighbours=new Map();for(let vertex=0;vertex<selected.length;vertex++)if(importedRig.primitiveKind(vertex)===kind){selected[vertex]=1;neighbours.set(vertex,[]);}
+      // Nail primitives live outside the tattoo-projectable surface vertex
+      // range. Reconstruct their topology from the rendered body parts rather
+      // than from surfaceTriangles, which intentionally excludes them.
+      for(const part of parts){if(!part.sourceIndices)continue;const triangles=part.appearanceBaseIndices||part.indices;for(let at=0;at<triangles.length;at+=3){const ids=[part.sourceIndices[triangles[at]],part.sourceIndices[triangles[at+1]],part.sourceIndices[triangles[at+2]]].filter(id=>selected[id]);for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){neighbours.get(ids[i]).push(ids[j]);neighbours.get(ids[j]).push(ids[i]);}}}
+      const seen=new Uint8Array(selected.length);components=[];for(const start of neighbours.keys()){if(seen[start])continue;const stack=[start],component=[];seen[start]=1;while(stack.length){const vertex=stack.pop();component.push(vertex);for(const other of neighbours.get(vertex))if(!seen[other]){seen[other]=1;stack.push(other);}}if(component.length>=3)components.push(component);}nativeDetailComponentCache.set(kind,{rig:importedRig,components});
+    }
+    return components.map(vertices=>{const neutralFrame=detailComponentFrame(vertices,index=>importedRig.neutralPoint(index)),currentFrame=detailComponentFrame(vertices,index=>importedRig.worldPoint(index),neutralFrame.basis);return {vertices,neutralFrame,currentFrame};});
+  }
+  function alignDetailToNative(mesh,kind){
+    const sourceComponents=meshTopologyComponents(mesh),allTargets=nativeDetailComponents(kind);if(!sourceComponents.length||!allTargets.length)return 0;
+    const componentRecords=sourceComponents.map(vertices=>{const values=[];for(const vertex of vertices){const at=vertex*3;values.push(mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]);}return {vertices,rest:positionBounds(values),componentCount:1};}),targetCount=Math.min(10,allTargets.length);
+    // Some MakeHuman toenail assets export the visible plate and its thin
+    // underside as disconnected objects.  Matching those twenty shells one by
+    // one can pair halves from neighbouring toes.  Cluster the nearest shells
+    // on each foot first, so registration always moves one complete nail.
+    const sourceRecords=[];
+    for(const side of [-1,1]){
+      const groups=componentRecords.filter(record=>(Math.sign(record.rest.center[0])||1)===side).map(record=>[record]),desired=Math.max(1,Math.round(targetCount/2));
+      while(groups.length>desired){let pair=[0,1],distance=Infinity;for(let first=0;first<groups.length;first++)for(let second=first+1;second<groups.length;second++){const a=groups[first].reduce((sum,item)=>sum+item.rest.center[0],0)/groups[first].length,b=groups[second].reduce((sum,item)=>sum+item.rest.center[0],0)/groups[second].length,c=groups[first].reduce((sum,item)=>sum+item.rest.center[1],0)/groups[first].length,d=groups[second].reduce((sum,item)=>sum+item.rest.center[1],0)/groups[second].length,e=groups[first].reduce((sum,item)=>sum+item.rest.center[2],0)/groups[first].length,f=groups[second].reduce((sum,item)=>sum+item.rest.center[2],0)/groups[second].length,current=Math.hypot(a-b,c-d,e-f);if(current<distance){distance=current;pair=[first,second];}}groups[pair[0]].push(...groups[pair[1]]);groups.splice(pair[1],1);}
+      for(const group of groups){const vertices=group.flatMap(record=>record.vertices),values=[];for(const vertex of vertices){const at=vertex*3;values.push(mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]);}sourceRecords.push({vertices,rest:positionBounds(values),componentCount:group.reduce((sum,item)=>sum+item.componentCount,0)});}
+    }
+    const usage=new Set(),assigned=[];let largest=0,matched=0;
+    for(const side of [-1,1]){
+      const sideSources=sourceRecords.filter(record=>(Math.sign(record.rest.center[0])||1)===side),sideTargets=allTargets.filter(target=>(Math.sign(target.neutralFrame.origin[0])||1)===side).sort((a,b)=>b.vertices.length-a.vertices.length).slice(0,sideSources.length);
+      if(kind==='toeNails'){
+        // Across different base bodies the spacing changes enough that a
+        // nearest-centre assignment can swap the hallux and second toe.  Toe
+        // order itself is invariant: nearest the body centre is the big toe,
+        // then the remaining plates progress laterally.
+        sideSources.sort((a,b)=>Math.abs(a.rest.center[0])-Math.abs(b.rest.center[0]));sideTargets.sort((a,b)=>Math.abs(a.neutralFrame.origin[0])-Math.abs(b.neutralFrame.origin[0]));
+        for(let index=0;index<Math.min(sideSources.length,sideTargets.length);index++){const record=sideSources[index],target=sideTargets[index];usage.add(target);assigned.push({record,target});matched+=record.componentCount;}
+      }else for(const record of sideSources){let targetRecord=null,bestDistance=Infinity;for(const target of sideTargets){if(usage.has(target))continue;const distance=Math.hypot(...sub(record.rest.center,target.neutralFrame.origin));if(distance<bestDistance){bestDistance=distance;targetRecord=target;}}if(!targetRecord)continue;usage.add(targetRecord);assigned.push({record,target:targetRecord});matched+=record.componentCount;}
+    }
+    for(const {record,target} of assigned){const neutral=target.neutralFrame,current=target.currentFrame,axisScale=current.extent.map((value,axis)=>clamp(value/neutral.extent[axis],.65,1.55));for(const vertex of record.vertices){const at=vertex*3,rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],delta=sub(rest,record.rest.center),local=neutral.axes.map(axis=>dot(delta,axis)),value=current.origin.slice();for(let frameAxis=0;frameAxis<3;frameAxis++)for(let axis=0;axis<3;axis++)value[axis]+=current.axes[frameAxis][axis]*local[frameAxis]*axisScale[frameAxis];for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(value[axis]-mesh.positions[at+axis]));mesh.positions[at+axis]=value[axis];}}}
+    if(mesh.fitStats)mesh.fitStats.detailRegistration={sourceComponents:sourceComponents.length,sourceGroups:sourceRecords.length,targetComponents:allTargets.length,matched,targetMatched:assigned.length};
+    return largest;
+  }
+  function fitFacialHairToMouth(mesh){
+    const mouth=bodyPrimitiveBounds('mouth');if(!mouth||!mesh.bindSurfaceIndices||!mesh.vertexNeighbours)return 0;const count=mesh.positions.length/3,seeds=new Uint8Array(count),influence=new Float32Array(count);let seedCount=0;
+    // Bindings that touch the lip surface are reliable anatomical landmarks.
+    // Use topology rings around them so the moustache, mouth surround and
+    // adjoining beard move as one continuous sheet instead of opening seams.
+    for(let vertex=0;vertex<count;vertex++){const at=vertex*3;let hits=0;for(let corner=0;corner<3;corner++)if(importedRig.primitiveKind?.(mesh.bindSurfaceIndices[at+corner])==='mouth')hits++;if(hits){seeds[vertex]=1;influence[vertex]=1;seedCount++;}}
+    if(seedCount<4)return 0;let frontier=seeds;
+    for(let ring=1;ring<=3;ring++){const next=new Uint8Array(count),weight=1-ring*.22;for(let vertex=0;vertex<count;vertex++)if(frontier[vertex])for(const neighbour of mesh.vertexNeighbours[vertex])if(!influence[neighbour]){next[neighbour]=1;influence[neighbour]=Math.max(influence[neighbour],weight);}frontier=next;}
+    const sourceValues=[];for(let vertex=0;vertex<count;vertex++)if(seeds[vertex]){const at=vertex*3;sourceValues.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);}if(sourceValues.length<12)return 0;
+    const source=positionBounds(sourceValues),sourceSize=boundsSize(source),mouthSize=boundsSize(mouth),beard=/beard/i.test(mesh.id),desiredWidth=mouthSize[0]*(beard?1.64:1.48)+.008,desiredHeight=mouthSize[1]*(beard?1.62:.72)+.008,scaleX=clamp(desiredWidth/sourceSize[0],.88,1.18),scaleY=clamp(desiredHeight/sourceSize[1],.86,1.16),targetY=mouth.center[1]+(beard ? .006 : mouthSize[1]*.58),targetFront=mouth.max[2]+.012,moveX=clamp(mouth.center[0]-source.center[0],-.035,.035),moveY=clamp(targetY-source.center[1],-.045,.045),scaledFront=source.center[2]+(source.max[2]-source.center[2]),moveZ=clamp(targetFront-scaledFront,-.018,.035);let largest=0;
+    for(let vertex=0;vertex<count;vertex++){const weight=influence[vertex];if(!weight)continue;const at=vertex*3,desired=[source.center[0]+(mesh.positions[at]-source.center[0])*scaleX+moveX,source.center[1]+(mesh.positions[at+1]-source.center[1])*scaleY+moveY,mesh.positions[at+2]+moveZ];for(let axis=0;axis<3;axis++){const change=(desired[axis]-mesh.positions[at+axis])*weight;mesh.positions[at+axis]+=change;largest=Math.max(largest,Math.abs(change));}}
+    return largest;
+  }
+  function sealCenteredGarment(mesh){
+    if(!['Tops','Dresses','Bottoms','Skirts'].includes(mesh.catalog?.category)||/open|cardigan|jacket|coat|vest/i.test(mesh.id))return 0;
+    let largest=0,count=0;
+    // Closed garments often export the front centre as two coincident UV
+    // borders. Independent proxy weights can pull those borders apart on wide
+    // chests or hips. Preserve the authored centreline contact without
+    // changing genuinely open-front garments.
+    for(let at=0;at<mesh.positions.length;at+=3){if(Math.abs(mesh.restPositions[at])>.012)continue;const change=-mesh.positions[at];mesh.positions[at]=0;largest=Math.max(largest,Math.abs(change));count++;}
+    if(mesh.fitStats)mesh.fitStats.centerlineVertices=count;
+    return largest;
+  }
   function updateMeshAppearanceAsset(mesh) {
-    if(rigidHeadCategories.has(mesh.catalog?.category)&&prepareSurfaceBindings(mesh)){
+    if(updateMakeHumanBoundAsset(mesh)){
+      // MakeHuman's authored proxy equation is the source of truth. It fits
+      // each asset vertex to the same base vertices used by MakeHuman itself,
+      // so body morphs and poses cannot detach footwear, hair or face details.
+      if(mesh.catalog?.category==='Hats'){prepareSurfaceBindings(mesh);mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,alignHatToHead(mesh));mesh.fitStats.deformationMode+=' + scalp contact alignment';}
+      else if(mesh.catalog?.category==='Hair'){prepareSurfaceBindings(mesh);mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,alignHairToScalp(mesh),enforceSurfaceClearance(mesh,.012,.065,anchor=>anchor[1]>2.30));mesh.fitStats.deformationMode+=' + scalp contact alignment';}
+      else if(mesh.catalog?.category==='Facial hair'){
+        // MakeHuman facial hair already carries the same proxy binding as the
+        // face. Preserve that authored mouth opening, and only prevent the mesh
+        // from sinking through the skin. Radially reshaping the opening creates
+        // broken moustache ends and angular holes on full beards.
+        prepareSurfaceBindings(mesh);mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,regularizeProxyDeformation(mesh,4,.55),fitFacialHairToMouth(mesh),enforceSurfaceClearance(mesh,.014,.075,anchor=>anchor[1]>2.08),enforceFaceForwardClearance(mesh));mesh.fitStats.deformationMode+=' + topology-regularized landmark face fit';
+      }
+      else if(['Eyebrows','Eyelashes'].includes(mesh.catalog?.category)){prepareSurfaceBindings(mesh);mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,enforceSurfaceClearance(mesh,.003,.025,anchor=>anchor[1]>2.42));mesh.fitStats.deformationMode+=' + face-shape transfer';}
+      else if(['Finger nails','Toe nails'].includes(mesh.catalog?.category)){prepareSurfaceBindings(mesh);const kind=mesh.catalog.category==='Finger nails'?'fingerNails':'toeNails';mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,alignDetailToNative(mesh,kind));mesh.fitStats.deformationMode+=' + native nail-surface registration';}
+      else if(['Tops','Dresses','Bottoms','Skirts','Underlayers','Gloves'].includes(mesh.catalog?.category)){prepareSurfaceBindings(mesh);const garment=['Tops','Dresses','Bottoms','Skirts','Underlayers'].includes(mesh.catalog.category),regularized=garment?regularizeProxyDeformation(mesh,2,.34):0;mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,regularized,enforceSurfaceClearance(mesh,appearanceClearance(mesh.catalog.category),.035),sealCenteredGarment(mesh));mesh.fitStats.deformationMode+=garment?' + topology regularization + collision clearance':' + collision clearance';}
+    }else if(rigidHeadCategories.has(mesh.catalog?.category)&&prepareSurfaceBindings(mesh)){
+      if(mesh.catalog.category==='Hats'){
+        const fitted=fitRigidHatToHead(mesh),contact=seatRigidHatOnScalp(mesh);mesh.fitStats={bound:!!fitted,deformationMode:'rigid head fit',maxMotion:Math.max(fitted?.maxMotion||0,contact),maxOffset:0,maxClearanceCorrection:contact,invalidVertices:fitted?.invalid||0,uniformScale:fitted?.uniform||1,sourceError:mesh.bindSourceError};
+        recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+      }
       const paired=pairedHeadCategories.has(mesh.catalog.category),groups={all:[[],[],[]],left:[[],[],[]],right:[[],[],[]]},count=mesh.restPositions.length/3,stride=Math.max(1,Math.floor(count/900));let invalid=0,maxMotion=0;
       for(let vertex=0;vertex<count;vertex+=stride){const at=vertex*3,ids=[mesh.bindSurfaceIndices[at],mesh.bindSurfaceIndices[at+1],mesh.bindSurfaceIndices[at+2]],weights=[mesh.bindSurfaceWeights[at],mesh.bindSurfaceWeights[at+1],mesh.bindSurfaceWeights[at+2]],anchor=[0,0,0];for(let corner=0;corner<3;corner++){const point=importedRig.worldPoint(ids[corner]);for(let axis=0;axis<3;axis++)anchor[axis]+=point[axis]*weights[corner];}const group=paired?(mesh.restPositions[at]<0?groups.left:groups.right):groups.all;for(let axis=0;axis<3;axis++)group[axis].push(anchor[axis]-mesh.bindGuidePositions[at+axis]);}
       const translations={};for(const [name,axes] of Object.entries(groups))translations[name]=axes.map(median);
       for(let vertex=0;vertex<count;vertex++){const at=vertex*3,translation=translations[paired?(mesh.restPositions[at]<0?'left':'right'):'all'];for(let axis=0;axis<3;axis++){const value=mesh.restPositions[at+axis]+translation[axis];mesh.positions[at+axis]=value;if(!Number.isFinite(value))invalid++;maxMotion=Math.max(maxMotion,Math.abs(translation[axis]));}}
-      if(['Hair','Hats'].includes(mesh.catalog.category)){let top=-Infinity;for(let at=1;at<mesh.positions.length;at+=3)top=Math.max(top,mesh.positions[at]);if(top<2.65){const correction=3.15-top;for(let at=1;at<mesh.positions.length;at+=3)mesh.positions[at]+=correction;maxMotion=Math.max(maxMotion,correction);}}
+      if(mesh.catalog.category==='Eyes')maxMotion=Math.max(maxMotion,alignEyesToSockets(mesh));
+      else if(['Eyebrows','Eyelashes'].includes(mesh.catalog.category)){maxMotion=Math.max(maxMotion,alignPeriocularAsset(mesh));maxMotion=Math.max(maxMotion,enforceSurfaceClearance(mesh,.0025,.035,anchor=>anchor[1]>2.15));}
+      else if(mesh.catalog.category==='Eyewear')maxMotion=Math.max(maxMotion,alignEyewearToFace(mesh));
+      if(mesh.catalog.category==='Facial hair'){const mouth=bodyPrimitiveBounds('mouth'),bounds=positionBounds(mesh.positions),beard=/beard/i.test(mesh.id),amount=beard?[.72,.72,.72]:[.82,.72,.82],targetY=(mouth?.center[1]??2.75)+(beard?-.10:.105),targetX=mouth?.center[0]??0,targetFront=(mouth?.max[2]??.08)+.014,scaledFront=bounds.center[2]+(bounds.max[2]-bounds.center[2])*amount[2],translation=[targetX-bounds.center[0],targetY-bounds.center[1],targetFront-scaledFront];for(let at=0;at<mesh.positions.length;at+=3)for(let axis=0;axis<3;axis++)mesh.positions[at+axis]=bounds.center[axis]+(mesh.positions[at+axis]-bounds.center[axis])*amount[axis]+translation[axis];maxMotion=Math.max(maxMotion,...translation.map(Math.abs));}
+      if(mesh.catalog.category==='Hair'){let top=-Infinity;for(let at=1;at<mesh.positions.length;at+=3)top=Math.max(top,mesh.positions[at]);if(top<2.65){const correction=3.15-top;for(let at=1;at<mesh.positions.length;at+=3)mesh.positions[at]+=correction;maxMotion=Math.max(maxMotion,correction);}}
       mesh.fitStats={bound:true,deformationMode:paired?'paired anatomical head frames':'rigid anatomical head frame',maxMotion,maxOffset:0,maxClearanceCorrection:0,invalidVertices:invalid/3,sourceError:mesh.bindSourceError};
     }else if(prepareSurfaceBindings(mesh)){
-      let maxMotion=0,maxOffset=0,maxClearanceCorrection=mesh.bindSourceError?.max||0,invalid=0;
+      let maxMotion=0,maxOffset=0,maxClearanceCorrection=0,invalid=0;const preserveAuthoredShape=['Tops','Dresses','Bottoms','Skirts','Underlayers','Shoes','Gloves'].includes(mesh.catalog?.category),clearance=appearanceClearance(mesh.catalog?.category);
       for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){
         const at=vertex*3,ids=[mesh.bindSurfaceIndices[at],mesh.bindSurfaceIndices[at+1],mesh.bindSurfaceIndices[at+2]],weights=[mesh.bindSurfaceWeights[at],mesh.bindSurfaceWeights[at+1],mesh.bindSurfaceWeights[at+2]],points=ids.map(index=>importedRig.worldPoint(index)),anchor=[0,0,0];
-        for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*weights[corner];const motion=[anchor[0]-mesh.bindNeutralAnchors[at],anchor[1]-mesh.bindNeutralAnchors[at+1],anchor[2]-mesh.bindNeutralAnchors[at+2]],local=[mesh.bindLocalOffsets[at],mesh.bindLocalOffsets[at+1],mesh.bindLocalOffsets[at+2]],position=[mesh.bindRestPositions[at]+motion[0],mesh.bindRestPositions[at+1]+motion[1],mesh.bindRestPositions[at+2]+motion[2]];maxMotion=Math.max(maxMotion,Math.hypot(...motion));maxOffset=Math.max(maxOffset,Math.hypot(...local));for(let axis=0;axis<3;axis++){const value=position[axis];mesh.positions[at+axis]=value;if(!Number.isFinite(value))invalid++;}
+        for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*weights[corner];const motion=[anchor[0]-mesh.bindNeutralAnchors[at],anchor[1]-mesh.bindNeutralAnchors[at+1],anchor[2]-mesh.bindNeutralAnchors[at+2]],local=[mesh.bindLocalOffsets[at],mesh.bindLocalOffsets[at+1],mesh.bindLocalOffsets[at+2]],rest=preserveAuthoredShape?mesh.restPositions:mesh.bindRestPositions,position=[rest[at]+motion[0],rest[at+1]+motion[1],rest[at+2]+motion[2]];if(preserveAuthoredShape){const frame=outwardAttachmentFrame(points,anchor),distance=dot(sub(position,anchor),frame.n),correction=Math.min(.025,Math.max(0,clearance-distance));if(correction){for(let axis=0;axis<3;axis++)position[axis]+=frame.n[axis]*correction;maxClearanceCorrection=Math.max(maxClearanceCorrection,correction);}}maxMotion=Math.max(maxMotion,Math.hypot(...motion));maxOffset=Math.max(maxOffset,Math.hypot(...local));for(let axis=0;axis<3;axis++){const value=position[axis];mesh.positions[at+axis]=value;if(!Number.isFinite(value))invalid++;}
       }
-      mesh.fitStats={bound:true,deformationMode:'continuous body displacement field',maxMotion,maxOffset,maxClearanceCorrection,invalidVertices:invalid/3,sourceError:mesh.bindSourceError};
+      if(mesh.catalog?.category==='Shoes')maxMotion=Math.max(maxMotion,alignShoesToFeet(mesh));
+      else if(mesh.catalog?.category==='Gloves')maxMotion=Math.max(maxMotion,alignGlovesToHands(mesh));
+      else maxMotion=Math.max(maxMotion,sealCenteredGarment(mesh));
+      mesh.fitStats={bound:true,deformationMode:mesh.catalog?.category==='Shoes'?'topology-preserving body displacement field + per-foot contact alignment':mesh.catalog?.category==='Gloves'?'topology-preserving body displacement field + per-hand contact alignment':preserveAuthoredShape?'topology-preserving body displacement field':'surface-fitted detail displacement field',maxMotion,maxOffset,maxClearanceCorrection,invalidVertices:invalid/3,sourceError:mesh.bindSourceError};
     }else {for(let i=0;i<mesh.restPositions.length;i+=3){const transformed=transformAppearancePoint(mesh.id,[mesh.restPositions[i],mesh.restPositions[i+1],mesh.restPositions[i+2]]);mesh.positions.set(transformed,i);}mesh.fitStats={bound:false,minScale:1,maxScale:1,maxOffset:0,invalidVertices:0,sourceError:null};}
     recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);
   }
   function activeMeshAppearanceAssets(){
     const result=[];
-    for(const id of bodySettings.equippedAssets||[]){const item=appearanceById.get(id);if(!item)continue;const hair=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(item.category),dark=['Eyewear'].includes(item.category),eyes=item.category==='Eyes';result.push({id,colour:eyes?(bodySettings.eyeColor||'#514c48'):hair?'#35261f':dark?'#20262d':'#2e4551',fabric:hair?0:.85,category:item.category});}
-    return result;
+    for(const id of bodySettings.equippedAssets||[]){const item=appearanceById.get(id);if(!item)continue;const hair=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(item.category),dark=['Eyewear'].includes(item.category),eyes=item.category==='Eyes',groomingColour={'Facial hair':bodySettings.facialHairColor||'#3b2a22',Eyebrows:bodySettings.eyebrowColor||'#3b2a22',Eyelashes:bodySettings.eyelashColor||'#171412',Hair:'#35261f'}[item.category];result.push({id,colour:eyes?(bodySettings.eyeColor||'#514c48'):(groomingColour||(dark?'#20262d':'#2e4551')),fabric:hair?0:.85,category:item.category});}
+    const layer={Underlayers:0,Tops:10,Dresses:10,Bottoms:20,Skirts:20,Shoes:30,Gloves:30,'Body accessories':35,Eyes:40,Eyebrows:41,Eyelashes:42,'Facial hair':43,Hair:44,Hats:45,Eyewear:46};return result.sort((a,b)=>(layer[a.category]||0)-(layer[b.category]||0));
   }
   let appearanceBodyMaskState={hiddenVertices:0,hiddenTriangles:0,totalTriangles:0};
-  function appearanceSurfaceCoverage(mesh,padding=3){if(!prepareSurfaceBindings(mesh))return null;let covered=new Uint8Array(importedRig.surfaceVertexCount);for(let vertex=0;vertex<mesh.bindSurfaceIndices.length/3;vertex++){const at=vertex*3;covered[mesh.bindSurfaceIndices[at]]=1;covered[mesh.bindSurfaceIndices[at+1]]=1;covered[mesh.bindSurfaceIndices[at+2]]=1;}for(let pass=0;pass<padding;pass++){const expanded=covered.slice(),triangles=importedRig.surfaceTriangles;for(let at=0;at<triangles.length;at+=3){const a=triangles[at],b=triangles[at+1],c=triangles[at+2];if(covered[a]||covered[b]||covered[c])expanded[a]=expanded[b]=expanded[c]=1;}covered=expanded;}return covered;}
-  function updateAppearanceBodyMask(){
-    if(software||!importedRig)return;const hidden=new Uint8Array(importedRig.vertexCount),explicitAssets=[],derivedAssets=[],activeCategories=new Set((bodySettings.equippedAssets||[]).map(id=>appearanceById.get(id)?.category));for(const id of bodySettings.equippedAssets||[]){const mesh=ensureMeshAppearanceAsset(id),category=mesh?.catalog?.category,coverage=mesh&&appearanceBackingCategories.has(category)?appearanceSurfaceCoverage(mesh):null;if(!coverage)continue;if(mesh.deleteVerts?.length)explicitAssets.push(id);else derivedAssets.push(id);for(let vertex=0;vertex<coverage.length;vertex++)if(coverage[vertex])hidden[vertex]=1;}
-    const replacedKinds=new Set();if(activeCategories.has('Eyes'))replacedKinds.add('eyes');let hiddenTriangles=0,totalTriangles=0;for(const part of parts){if(!part.sourceIndices)continue;if(!part.appearanceBaseIndices)part.appearanceBaseIndices=part.indices;const source=part.appearanceBaseIndices,visible=[];totalTriangles+=source.length/3;for(let at=0;at<source.length;at+=3){const a=part.sourceIndices[source[at]],b=part.sourceIndices[source[at+1]],c=part.sourceIndices[source[at+2]],kind=importedRig.primitiveKind?.(a),replaced=kind===importedRig.primitiveKind?.(b)&&kind===importedRig.primitiveKind?.(c)&&replacedKinds.has(kind),covered=a<hidden.length&&b<hidden.length&&c<hidden.length&&hidden[a]+hidden[b]+hidden[c]>=2;if(replaced||covered){hiddenTriangles++;continue;}visible.push(source[at],source[at+1],source[at+2]);}part.indices=new source.constructor(visible);part.count=part.indices.length;gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,part.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,part.indices,gl.DYNAMIC_DRAW);}appearanceBodyMaskState={hiddenVertices:hidden.reduce((sum,value)=>sum+value,0),hiddenTriangles,totalTriangles,explicitAssets:explicitAssets.length,derivedAssets:derivedAssets.length,replacedPrimitives:[...replacedKinds]};
+  function authoredAppearanceCoverage(mesh){
+    if(!mesh?.deleteVerts?.length||!importedRig)return null;
+    const covered=new Uint8Array(importedRig.surfaceVertexCount),map=baseVertexMap(),positionKeys=new Set(),key=point=>`${Math.round(point[0]*1e5)},${Math.round(point[1]*1e5)},${Math.round(point[2]*1e5)}`;
+    // A glTF export commonly splits one MakeHuman vertex at UV/material seams.
+    // The generated map stores one representative only, so mark every exported
+    // duplicate at the same neutral position or narrow seam slivers survive.
+    for(const vertex of mesh.deleteVerts){const mapped=map?.[vertex];if(mapped!==undefined&&mapped<covered.length){covered[mapped]=1;positionKeys.add(key(importedRig.neutralPoint(mapped)));}}
+    for(let vertex=0;vertex<covered.length;vertex++)if(positionKeys.has(key(importedRig.neutralPoint(vertex))))covered[vertex]=1;
+    return covered;
   }
-  const appearanceBackingCategories=new Set(['Tops','Dresses','Bottoms','Skirts','Underlayers','Shoes','Gloves']);
-  function ensureAppearanceBacking(mesh){if(mesh.backing===false)return null;if(mesh.backing?.rig===importedRig)return mesh.backing;if(!appearanceBackingCategories.has(mesh.catalog?.category)){mesh.backing=false;return null;}const covered=appearanceSurfaceCoverage(mesh),sourceTriangles=importedRig.surfaceTriangles,sourceIndices=[],indices=[],lookup=new Map();if(!covered){mesh.backing=false;return null;}for(let at=0;at<sourceTriangles.length;at+=3){const tri=[sourceTriangles[at],sourceTriangles[at+1],sourceTriangles[at+2]];if(covered[tri[0]]+covered[tri[1]]+covered[tri[2]]<2)continue;for(const source of tri){if(!lookup.has(source)){lookup.set(source,sourceIndices.length);sourceIndices.push(source);}indices.push(lookup.get(source));}}if(!indices.length){mesh.backing=false;return null;}const IndexType=sourceIndices.length>65535?Uint32Array:Uint16Array,backing={rig:importedRig,sourceIndices:new Uint32Array(sourceIndices),indices:new IndexType(indices),positions:new Float32Array(sourceIndices.length*3),normals:new Float32Array(sourceIndices.length*3),uvs:new Float32Array(sourceIndices.length*2),count:indices.length,indexType:IndexType===Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT,pb:gl.createBuffer(),nb:gl.createBuffer(),ub:gl.createBuffer(),ib:gl.createBuffer()};gl.bindBuffer(gl.ARRAY_BUFFER,backing.ub);gl.bufferData(gl.ARRAY_BUFFER,backing.uvs,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,backing.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,backing.indices,gl.STATIC_DRAW);return mesh.backing=backing;}
-  function renderAppearanceBacking(mesh,pgr){const backing=ensureAppearanceBacking(mesh);if(!backing)return;for(let vertex=0;vertex<backing.sourceIndices.length;vertex++)backing.positions.set(importedRig.worldPoint(backing.sourceIndices[vertex]),vertex*3);recomputeNormals(backing);for(let vertex=0;vertex<backing.sourceIndices.length;vertex++)for(let axis=0;axis<3;axis++)backing.positions[vertex*3+axis]+=backing.normals[vertex*3+axis]*.003;recomputeNormals(backing);gl.bindBuffer(gl.ARRAY_BUFFER,backing.pb);gl.bufferData(gl.ARRAY_BUFFER,backing.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,backing.nb);gl.bufferData(gl.ARRAY_BUFFER,backing.normals,gl.DYNAMIC_DRAW);const colour=mesh.textureAverage||mesh.material.diffuseColor||[.28,.31,.35,1];gl.uniform4fv(pgr.colour,colour.length===4?colour:[...colour,1]);gl.uniform3fv(pgr.accent,[.22,.20,.18]);gl.uniform3fv(pgr.atlasFallback,colour.slice(0,3));gl.uniform1f(pgr.fabric,.88);gl.uniform1f(pgr.useTexture,0);gl.uniform1f(pgr.forceOpaque,1);gl.uniform1f(pgr.shininess,.08);gl.uniform1f(pgr.eye,0);gl.bindBuffer(gl.ARRAY_BUFFER,backing.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,backing.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ARRAY_BUFFER,backing.ub);gl.vertexAttribPointer(pgr.uv,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.uv);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,backing.ib);gl.drawElements(gl.TRIANGLES,backing.count,backing.indexType,0);}
+  function boundsAppearanceCoverage(mesh){
+    const split=['Shoes','Gloves'].includes(mesh.catalog?.category),groups=split?[[],[]]:[[]];
+    for(let at=0;at<mesh.positions.length;at+=3){const group=split&&mesh.restPositions[at]>=0?1:0;groups[group].push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);}
+    const regions=groups.filter(values=>values.length).map(values=>{const bounds=positionBounds(values),size=boundsSize(bounds),margin=[Math.min(.025,size[0]*.04),Math.min(.025,size[1]*.025),Math.min(.025,size[2]*.04)];return {bounds,margin};}),covered=new Uint8Array(importedRig.surfaceVertexCount);
+    for(let vertex=0;vertex<covered.length;vertex++){const point=importedRig.worldPoint(vertex);if(regions.some(({bounds,margin})=>point[0]>bounds.min[0]+margin[0]&&point[0]<bounds.max[0]-margin[0]&&point[1]>bounds.min[1]+margin[1]&&point[1]<bounds.max[1]-margin[1]&&point[2]>bounds.min[2]+margin[2]&&point[2]<bounds.max[2]-margin[2]))covered[vertex]=1;}
+    return covered;
+  }
+  function updateAppearanceBodyMask(){
+    if(software||!importedRig)return;
+    const hidden=new Uint8Array(importedRig.vertexCount),explicitAssets=[],derivedAssets=[];
+    for(const id of bodySettings.equippedAssets||[]){
+      const mesh=ensureMeshAppearanceAsset(id),category=mesh?.catalog?.category;if(!mesh||!bodyOcclusionCategories.has(category))continue;
+      if(mesh.fitRevision!==appearanceFitRevision){updateMeshAppearanceAsset(mesh);mesh.fitRevision=appearanceFitRevision;appearanceRefits++;}
+      // Only an authored MakeHuman delete_verts set is precise enough for a
+      // garment opening.  Synthesising a mask from nearby body triangles can
+      // remove skin just beyond a neckline, cuff or hem and expose the scene
+      // background.  Shoes and gloves are the exception: they fully enclose a
+      // compact extremity, so a conservative per-side volume is appropriate.
+      let coverage=authoredAppearanceCoverage(mesh),derived=category==='Shoes'||category==='Gloves'?boundsAppearanceCoverage(mesh):null;
+      if(coverage){explicitAssets.push(id);if(derived)for(let vertex=0;vertex<coverage.length;vertex++)coverage[vertex]=(coverage[vertex]||derived[vertex])?1:0;}else{coverage=derived;if(coverage)derivedAssets.push(id);}
+      if(!coverage)continue;for(let vertex=0;vertex<coverage.length;vertex++)if(coverage[vertex])hidden[vertex]=1;
+    }
+    let hiddenTriangles=0,totalTriangles=0;
+    for(const part of parts){
+      if(!part.sourceIndices)continue;
+      if(!part.appearanceBaseIndices)part.appearanceBaseIndices=part.indices;
+      const source=part.appearanceBaseIndices,visible=[];totalTriangles+=source.length/3;
+      for(let at=0;at<source.length;at+=3){
+        const a=part.sourceIndices[source[at]],b=part.sourceIndices[source[at+1]],c=part.sourceIndices[source[at+2]],covered=a<hidden.length&&b<hidden.length&&c<hidden.length&&hidden[a]+hidden[b]+hidden[c]===3;
+        if(covered){hiddenTriangles++;continue;}
+        visible.push(source[at],source[at+1],source[at+2]);
+      }
+      part.indices=new source.constructor(visible);part.count=part.indices.length;gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,part.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,part.indices,gl.DYNAMIC_DRAW);
+    }
+    appearanceBodyMaskState={hiddenVertices:hidden.reduce((sum,value)=>sum+value,0),hiddenTriangles,totalTriangles,explicitAssets:explicitAssets.length,derivedAssets:derivedAssets.length,replacedPrimitives:[]};
+  }
+  // Opaque garments use their authored MakeHuman coverage map to suppress
+  // body-surface breakthrough. Assets without one derive a conservative map
+  // from their own proxy bindings, including trousers, shoes and gloves.
+  const bodyOcclusionCategories=new Set(['Tops','Dresses','Bottoms','Skirts','Shoes','Gloves']);
+  const opaqueAppearanceCategories=new Set(['Tops','Dresses','Bottoms','Skirts','Underlayers','Shoes','Gloves','Hats']);
   function renderMeshAppearanceAssets(){
-    if(software)return;const active=activeMeshAppearanceAssets();if(!active.length)return;ensureMeshAppearanceProgram();const pgr=meshAppearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-    for(const entry of active){const mesh=ensureMeshAppearanceAsset(entry.id);if(!mesh)continue;updateMeshAppearanceAsset(mesh);renderAppearanceBacking(mesh,pgr);const eyes=entry.category==='Eyes',source=eyes?[1,1,1]:mesh.material.diffuseColor,colour=source?.length>=3?[source[0],source[1],source[2],Number.isFinite(mesh.material.opacity)?mesh.material.opacity:1]:colour4(entry.colour||'#2e4551'),accent=eyes?colour4(bodySettings.eyeColor||'#514c48'):colour4('#d0a36f'),fallback=mesh.textureAverage||colour,forceOpaque=appearanceBackingCategories.has(entry.category);gl.uniform4fv(pgr.colour,colour);gl.uniform3fv(pgr.accent,accent.slice(0,3));gl.uniform3fv(pgr.atlasFallback,fallback.slice(0,3));gl.uniform1f(pgr.fabric,entry.fabric);gl.uniform1f(pgr.useTexture,mesh.textureReady?1:0);gl.uniform1f(pgr.forceOpaque,forceOpaque?1:0);gl.uniform1f(pgr.shininess,clamp(Number(mesh.material.shininess)||0,0,1));gl.uniform1f(pgr.eye,eyes?1:0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.uniform1i(pgr.texture,0);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.ub);gl.vertexAttribPointer(pgr.uv,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.uv);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType,0);}gl.disable(gl.BLEND);
+    if(software)return;const active=activeMeshAppearanceAssets();if(!active.length)return;ensureMeshAppearanceProgram();const pgr=meshAppearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    for(const entry of active){
+      const mesh=ensureMeshAppearanceAsset(entry.id);if(!mesh)continue;if(mesh.fitRevision!==appearanceFitRevision){updateMeshAppearanceAsset(mesh);mesh.fitRevision=appearanceFitRevision;appearanceRefits++;}
+      const eyes=entry.category==='Eyes',grooming=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(entry.category),tintedGrooming=['Facial hair','Eyebrows','Eyelashes'].includes(entry.category),source=eyes||grooming&&mesh.textureReady?(tintedGrooming?colour4(entry.colour||'#3b2a22'):[1,1,1,1]):grooming?colour4(entry.colour||'#35261f'):mesh.material.diffuseColor,colour=source?.length>=3?[source[0],source[1],source[2],Number.isFinite(mesh.material.opacity)?mesh.material.opacity:1]:colour4(entry.colour||'#2e4551'),accent=eyes?colour4(bodySettings.eyeColor||'#514c48'):colour4('#d0a36f'),fallback=mesh.textureAverage||colour,forceOpaque=opaqueAppearanceCategories.has(entry.category)&&!mesh.textureReady,depthBias={Underlayers:.00018,Tops:.00025,Dresses:.00025,Bottoms:.00025,Skirts:.00025,Shoes:.00016,Gloves:.00020,'Finger nails':.00016,'Toe nails':.00016,Hair:.00004,'Facial hair':.00005,Eyebrows:.00006,Eyelashes:.00007,Eyewear:.00004}[entry.category]||0;
+      gl.uniform4fv(pgr.colour,colour);gl.uniform3fv(pgr.accent,accent.slice(0,3));gl.uniform3fv(pgr.atlasFallback,fallback.slice(0,3));gl.uniform1f(pgr.fabric,entry.fabric);gl.uniform1f(pgr.useTexture,mesh.textureReady?1:0);gl.uniform1f(pgr.forceOpaque,forceOpaque?1:0);gl.uniform1f(pgr.depthBias,depthBias);gl.uniform1f(pgr.shininess,clamp(Number(mesh.material.shininess)||0,0,1));gl.uniform1f(pgr.eye,eyes?1:0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.uniform1i(pgr.texture,0);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.ub);gl.vertexAttribPointer(pgr.uv,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.uv);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType,0);
+    }gl.disable(gl.BLEND);
   }
 
   refreshTexture = function refreshTextureV6(p) {
@@ -515,7 +825,7 @@
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = ({
       skin: bodySettings.skinTone || '#dfc8b3', cloth: '#82909c', brief: '#272d35', areola: '#c29a88', nipple: '#ae8172',
-      navel: '#8e6c5b', shadow: '#9d796a', eyewhite: '#d8c5af', iris: '#514c48', brow: '#8e7064', lip: '#ba9485'
+      navel: '#8e6c5b', shadow: '#9d796a', eyewhite: '#f2eee8', iris: '#514c48', brow: '#8e7064', lip: bodySettings.lipColor || '#ba9485'
     }[p.color] || '#dfc8b3');
     ctx.fillRect(0, 0, W, H);
     if (p.color === 'brief') {
@@ -994,7 +1304,7 @@
         if (Number.isFinite(imported.bodySettings.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, imported.bodySettings.heightCm));
         for (const key of ['chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize']) if (Number.isFinite(imported.bodySettings[key])) bodySettings[key] = imported.bodySettings[key];
         { const importedBreastSize=Number(bodySettings.breastSize); bodySettings.breastSize=Number.isFinite(importedBreastSize)?Math.max(0,Math.min(200,importedBreastSize)):50; }
-        for (const key of ['eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (imported.bodySettings[key] !== undefined) bodySettings[key] = imported.bodySettings[key];
+        for (const key of ['lipColor', 'lipTonePosition', 'facialHairColor', 'facialHairTonePosition', 'eyebrowColor', 'eyebrowTonePosition', 'eyelashColor', 'eyelashTonePosition', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (imported.bodySettings[key] !== undefined) bodySettings[key] = imported.bodySettings[key];
         bodySettings.equippedAssets = Array.isArray(imported.bodySettings.equippedAssets) ? imported.bodySettings.equippedAssets.filter(id => appearanceById.has(id)).slice(0,20) : [];
         bodySettings.equippedAssets.forEach(id => loadAppearanceAsset(id).catch(error => console.warn(error)));
         window.INK_ATLAS_BODY_PROFILE = bodySettings.profile;
@@ -1040,7 +1350,7 @@
 
   function installModelUI() {
     const modelHeading = [...leftRail.querySelectorAll('h2')].find(h => h.textContent.trim() === 'Anatomical body');
-    if (modelHeading) modelHeading.textContent = 'Realistic MakeHuman body';
+    if (modelHeading) modelHeading.textContent = 'Anatomical body';
     const uploadBox = $('bodyModelUpload').closest('.uploadbox');
     const controls = document.createElement('div');
     controls.className = 'body-settings';
@@ -1082,7 +1392,7 @@
     const note = document.querySelector('.model-note');
     if (note) {
       note.classList.add('collapsed');
-      note.innerHTML = '<button type="button" class="model-note-toggle" aria-expanded="false"><span>Model details</span><b aria-hidden="true">＋</b></button><div class="model-note-body">CC0 MakeHuman-derived body · 163-bone rig · dual-quaternion skinning · pose-space shoulder correctives · seam-aware tattoo projection.</div>';
+      note.innerHTML = '<button type="button" class="model-note-toggle" aria-expanded="false"><span>Model details</span><b aria-hidden="true">＋</b></button><div class="model-note-body">Adjustable anatomical model · pose-aware movement · seam-aware tattoo projection.</div>';
       const toggle = note.querySelector('.model-note-toggle'), body = note.querySelector('.model-note-body');
       toggle.onclick = () => { const open = note.classList.toggle('open'); toggle.setAttribute('aria-expanded', String(open)); toggle.querySelector('b').textContent = open ? '−' : '＋'; body.hidden = !open; };
       body.hidden = true;
@@ -1091,7 +1401,7 @@
     const overlay = document.createElement('div');
     overlay.className = 'model-loading';
     overlay.id = 'modelLoading';
-    overlay.innerHTML = '<div class="model-loading-card"><strong>Preparing realistic body</strong><span>Loading the CC0 MakeHuman mesh and mapping its 163-bone rig.</span><div class="model-loading-line"></div></div>';
+    overlay.innerHTML = '<div class="model-loading-card"><strong>Preparing anatomical body</strong><span>Loading the model and fitting its movement controls.</span><div class="model-loading-line"></div></div>';
     canvasWrapV6.appendChild(overlay);
   }
 
@@ -1108,11 +1418,13 @@
       full: { target: [0, scaledY(.08 + armFactor * .32), 0], distance: clamp((matchMedia('(max-width: 780px)').matches ? 13.8 : 12.7) * heightScale + armFactor * 3.2 + legFactor * 1.4, 11, 18.5), label: 'Full body' },
       head: { target: [0, scaledY(2.82), 0], distance: 3.25, label: 'Head' },
       upper: { target: [0, scaledY(1.92), 0], distance: 5.25, label: 'Upper body' },
+      hands: { target: [0, scaledY(.67), .34], distance: 8.0, label: 'Hands' },
       torso: { target: [0, scaledY(.92), 0], distance: 4.55, label: 'Torso' },
       pelvis: { target: [0, scaledY(-.16), 0], distance: 3.8, label: 'Pelvis' },
       legs: { target: [0, scaledY(-1.73), 0], distance: 6.1, label: 'Legs' },
       feet: { target: [0, scaledY(-3.18), .12], distance: 3.35, label: 'Feet' }
     };
+    for(const [key,side] of [['leftHand','left'],['rightHand','right']]){const limb=partById[side+'_forearm'];if(!limb)continue;const bounds=positionBounds(limb.positions),threshold=side==='left'?bounds.max[0]-(bounds.max[0]-bounds.min[0])*.38:bounds.min[0]+(bounds.max[0]-bounds.min[0])*.38,values=[];for(let at=0;at<limb.positions.length;at+=3)if(side==='left'?limb.positions[at]<threshold:limb.positions[at]>threshold)values.push(limb.positions[at],limb.positions[at+1],limb.positions[at+2]);if(values.length){const hand=positionBounds(values);presets[key]={target:hand.center,distance:1.85,label:`${side==='left'?'Left':'Right'} hand`};}}
     let next = presets[region];
     if (region === 'selected') {
       const tattoo = tattoos.find(t => t.id === selectedId), part = tattoo && partById[tattoo.part];
@@ -1131,7 +1443,7 @@
 
     const tools = document.createElement('div');
     tools.className = 'focus-tools';
-    tools.innerHTML = `<label for="bodyFocus">Focus</label><select id="bodyFocus" aria-label="Focus the camera on a body region"><option value="full">Full body</option><option value="head">Head</option><option value="upper">Upper body</option><option value="torso">Torso</option><option value="pelvis">Pelvis</option><option value="legs">Legs</option><option value="feet">Feet</option><option value="selected">Selected tattoo</option></select>`;
+    tools.innerHTML = `<label for="bodyFocus">Focus</label><select id="bodyFocus" aria-label="Focus the camera on a body region"><option value="full">Full body</option><option value="head">Head</option><option value="upper">Upper body</option><option value="hands">Hands</option><option value="leftHand">Left hand</option><option value="rightHand">Right hand</option><option value="torso">Torso</option><option value="pelvis">Pelvis</option><option value="legs">Legs</option><option value="feet">Feet</option><option value="selected">Selected tattoo</option></select>`;
     canvasWrapV6.appendChild(tools);
     $('bodyFocus').onchange = event => focusBodyRegion(event.target.value);
     $('hint').textContent = 'Wheel over a body part to zoom there · Shift-drag to pan · Double-click to focus';
@@ -1165,7 +1477,9 @@
     canvas.addEventListener('pointerup', endPan, true); canvas.addEventListener('pointercancel', endPan, true); canvas.addEventListener('contextmenu', event => event.preventDefault());
   }
 
+  let bundledModelLoadGeneration=0;
   async function loadBundledModel() {
+    const generation=++bundledModelLoadGeneration;
     const overlay = $('modelLoading');
     const button = $('loadBundledModelBtn');
     const restoredPose = stateRestored ? { ...pose } : null;
@@ -1190,7 +1504,8 @@
         blob = await response.blob();
       }
       const file = new File([blob], V6.modelFile, { type: 'model/gltf-binary' });
-      await loadAnatomicalGLB(file);
+      const loaded=await loadAnatomicalGLB(file,()=>generation===bundledModelLoadGeneration);
+      if(!loaded||generation!==bundledModelLoadGeneration)return;
       updateAppearanceBodyMask();
       if (needsSurfaceCoordinateMigration) migrateLegacySurfaceCoordinates();
       if (restoredPose) setPose(restoredPose);
@@ -1199,7 +1514,7 @@
       camTarget = [0, (.08 + armFactor * .32 + 3.41) * heightScale - 3.41, 0];
       camDist = clamp((matchMedia('(max-width: 780px)').matches ? 13.8 : 12.7) * heightScale + armFactor * 3.2 + legFactor * 1.4, 11, 18.5);
       requestDraw();
-      modelStatus.textContent = `${V6.modelName} · ${importedRig.vertexCount.toLocaleString()} vertices · ${importedRig.faceCount.toLocaleString()} triangles · dual-quaternion skinning.`;
+      modelStatus.textContent = `Anatomical body · ${importedRig.vertexCount.toLocaleString()} vertices · ready to pose.`;
       button.textContent = 'Reload realistic body';
     } catch (error) {
       modelStatus.textContent = error.message;
@@ -1207,6 +1522,7 @@
       toast('The high-definition body could not load. Use Reload to try again.');
       console.error(error);
     } finally {
+      if(generation!==bundledModelLoadGeneration)return;
       overlay.classList.remove('on');
       button.disabled = false;
     }
@@ -1280,13 +1596,13 @@
     await loadAppearanceAsset(id);
     const multi=new Set(['Body accessories','Underlayers']);
     bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id&&(multi.has(item.category)||appearanceById.get(current)?.category!==item.category));
-    bodySettings.equippedAssets.push(id);updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();return item;
+    bodySettings.equippedAssets.push(id);syncNativeEyeVisibility();updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();return item;
   }
-  function removeAppearanceAsset(id){bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id);updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();}
-  function appearanceAssetStats(id){const mesh=meshAppearanceCache.get(id);if(!mesh)return null;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];for(let i=0;i<mesh.positions.length;i+=3)for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],mesh.positions[i+axis]);max[axis]=Math.max(max[axis],mesh.positions[i+axis]);}return {vertices:mesh.positions.length/3,min,max,finite:[...min,...max].every(Number.isFinite)&&!mesh.fitStats?.invalidVertices,backingTriangles:(mesh.backing?.count||0)/3,...mesh.fitStats};}
+  function removeAppearanceAsset(id){bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id);syncNativeEyeVisibility();updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();}
+  function appearanceAssetStats(id){const mesh=meshAppearanceCache.get(id);if(!mesh)return null;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity],restMin=[Infinity,Infinity,Infinity],restMax=[-Infinity,-Infinity,-Infinity];for(let i=0;i<mesh.positions.length;i+=3)for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],mesh.positions[i+axis]);max[axis]=Math.max(max[axis],mesh.positions[i+axis]);restMin[axis]=Math.min(restMin[axis],mesh.restPositions[i+axis]);restMax[axis]=Math.max(restMax[axis],mesh.restPositions[i+axis]);}return {vertices:mesh.positions.length/3,min,max,restMin,restMax,finite:[...min,...max].every(Number.isFinite)&&!mesh.fitStats?.invalidVertices,backingTriangles:(mesh.backing?.count||0)/3,...mesh.fitStats};}
   window.InkAtlasV7Bridge = {
     bodySettings, appearanceCatalog, measureTattooDistortion, decalMeshes, focusBodyRegion,
-    equipAppearanceAsset, removeAppearanceAsset, appearanceAssetStats, appearanceBodyMaskStats:()=>({...appearanceBodyMaskState}), isAppearanceAssetEquipped:id=>(bodySettings.equippedAssets||[]).includes(id),
+    equipAppearanceAsset, removeAppearanceAsset, appearanceAssetStats, appearanceBodyMaskStats:()=>({...appearanceBodyMaskState}), appearancePerformanceStats:()=>({fitRevision:appearanceFitRevision,refits:appearanceRefits}), isAppearanceAssetEquipped:id=>(bodySettings.equippedAssets||[]).includes(id),
     resetAnalysisBaselines: () => { for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; },
     markAllDirty: () => { parts.forEach(part => part.dirty = true); requestDraw(); },
     updateClothing: () => { parts.forEach(part => part.dirty = true); requestDraw(); },

@@ -1,4 +1,4 @@
-const CACHE='ink-atlas-v1.6.1';
+const CACHE='ink-atlas-v1.6.45';
 const SHELL=['./','./index.html','./v6.css','./v7.css','./v6.js','./v7.js','./model-data.js','./female-model-data.js','./appearance-catalog.js','./base-vertex-map.js','./anatomy-targets.js','./pose-presets.js','./assets/male-base-mesh-base_male.glb','./assets/female-base-mesh-base_female.glb','./icon.svg','./manifest.json','./README.md','./THIRD_PARTY_NOTICES.md','./PRIVACY.md'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
