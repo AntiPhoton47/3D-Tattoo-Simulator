@@ -19,7 +19,6 @@ Then open `http://127.0.0.1:8765/`. A service worker caches the application shel
 ## What it includes
 
 - Masculine and feminine high-resolution, rigged body bases with an optional non-explicit unclothed planning surface.
-- Adjustable feminine breast volume with smooth, bounded geometry transitions.
 - A 363-item MakeHuman community library spanning tops, bottoms, dresses, skirts, underlayers, shoes, gloves, hats, eyewear, hair, facial hair, brows, lashes, eyes and nails. Source materials and resized diffuse textures are retained, while geometry and images are loaded only when selected.
 - MakeHuman wardrobe, hair and grooming meshes fitted to either planning body without gender labels on the library choices.
 - Surface-bound eyes, eyebrows, eyelashes, finger/toe nails and eye colour, plus local nose, ear and cheek shape targets.
