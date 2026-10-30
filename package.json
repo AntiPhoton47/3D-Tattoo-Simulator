@@ -1,10 +1,12 @@
 {
   "name": "ink-atlas",
-  "version": "1.6.45",
+  "version": "1.6.71",
   "private": true,
   "description": "Local-first 3D tattoo placement simulator",
   "scripts": {
     "check": "node scripts/validate-release.mjs",
+    "build:bodies": "node scripts/embed-body-payloads.mjs",
+    "build:watches": "node scripts/build-watch-assets.mjs",
     "test:assets": "node scripts/audit-appearance.mjs",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",

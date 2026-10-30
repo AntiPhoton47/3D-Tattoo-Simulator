@@ -16,27 +16,28 @@
     }
   };
   const bodyDefaults = selectedBodyModel === 'female'
-    ? { heightCm: 165, chestCm: 91, waistCm: 74, hipsCm: 99, bicepsCm: 28, thighsCm: 58, shoulderCm: 39, breastSize: 50 }
-    : { heightCm: 178, chestCm: 96, waistCm: 82, hipsCm: 96, bicepsCm: 32, thighsCm: 56, shoulderCm: 44, breastSize: 50 };
+    ? { heightCm: 165, chestCm: 91, waistCm: 74, hipsCm: 99, bicepsCm: 28, thighsCm: 58, shoulderCm: 39, breastSize: 50, pecSize: 50, buttSize: 50, muscleDefinition: 35 }
+    : { heightCm: 178, chestCm: 96, waistCm: 82, hipsCm: 96, bicepsCm: 32, thighsCm: 56, shoulderCm: 44, breastSize: 50, pecSize: 50, buttSize: 50, muscleDefinition: 35 };
   const appearanceCatalog = Array.isArray(window.INK_ATLAS_APPEARANCE_CATALOG) ? window.INK_ATLAS_APPEARANCE_CATALOG : [];
   const appearanceById = new Map(appearanceCatalog.map(item => [item.id, item]));
   const defaultEyeId=appearanceById.has('makehuman_system_assets_cc0_high_poly')?'makehuman_system_assets_cc0_high_poly':'none';
   window.INK_ATLAS_ASSET_PAYLOADS = window.INK_ATLAS_ASSET_PAYLOADS || {};
-  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, lipColor:'#ba9485', lipTonePosition:50, facialHairColor:'#3b2a22', facialHairTonePosition:24, eyebrowColor:'#3b2a22', eyebrowTonePosition:24, eyelashColor:'#171412', eyelashTonePosition:0, modelType: selectedBodyModel, eyeStyle:defaultEyeId, eyebrowStyle:'none', eyelashStyle:'none', fingerNailStyle:'none', toeNailStyle:'none', noseShape:'none', earShape:'none', cheekShape:'none', eyeColor:'#514c48', clothingXRay: false, renderQuality: 'auto', equippedAssets: defaultEyeId==='none'?[]:[defaultEyeId], ...bodyDefaults };
+  const bodySettings = { profile: 'balanced', frame: 'balanced', skinTone: '#dfc8b3', skinTonePosition: 72, lipColor:'#ba9485', lipTonePosition:50, hairColor:'#35261f', hairTonePosition:18, facialHairColor:'#3b2a22', facialHairTonePosition:24, eyebrowColor:'#3b2a22', eyebrowTonePosition:24, eyelashColor:'#171412', eyelashTonePosition:0, modelType: selectedBodyModel, eyeStyle:defaultEyeId, eyebrowStyle:'none', eyelashStyle:'none', fingerNailStyle:'none', toeNailStyle:'none', noseShape:'none', earShape:'none', cheekShape:'none', eyeColor:'#514c48', renderQuality: 'auto', equippedAssets: defaultEyeId==='none'?[]:[defaultEyeId], ...bodyDefaults };
   const syncNativeEyeVisibility=()=>{window.INK_ATLAS_EXTERNAL_EYES_ACTIVE=(bodySettings.equippedAssets||[]).some(id=>appearanceById.get(id)?.category==='Eyes');};
   syncNativeEyeVisibility();
-  let needsSurfaceCoordinateMigration = true;
   try {
     const storedLayout = JSON.parse(localStorage.getItem('inkAtlas_tattoo_v1') || '{}'), prior = storedLayout.bodySettings;
-    needsSurfaceCoordinateMigration = Number(storedLayout.version || 0) < 6.3;
     if (prior && ['balanced', 'athletic', 'broad', 'lean'].includes(prior.profile)) bodySettings.profile = prior.profile;
     if (prior && Number.isFinite(prior.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, prior.heightCm));
-    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'lipColor', 'lipTonePosition', 'facialHairColor', 'facialHairTonePosition', 'eyebrowColor', 'eyebrowTonePosition', 'eyelashColor', 'eyelashTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
+    if (prior) for (const key of ['frame', 'skinTone', 'skinTonePosition', 'lipColor', 'lipTonePosition', 'hairColor', 'hairTonePosition', 'facialHairColor', 'facialHairTonePosition', 'eyebrowColor', 'eyebrowTonePosition', 'eyelashColor', 'eyelashTonePosition', 'chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize', 'pecSize', 'buttSize', 'muscleDefinition', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'renderQuality']) if (prior[key] !== undefined) bodySettings[key] = prior[key];
     if (Array.isArray(prior?.equippedAssets)) bodySettings.equippedAssets = prior.equippedAssets.filter(id => appearanceById.has(id)).slice(0, 20);
   } catch (_) {}
   bodySettings.modelType = selectedBodyModel;
   const restoredBreastSize = Number(bodySettings.breastSize);
-  bodySettings.breastSize = Number.isFinite(restoredBreastSize) ? Math.max(0, Math.min(200, restoredBreastSize)) : 50;
+  bodySettings.breastSize = Number.isFinite(restoredBreastSize) ? Math.max(0, Math.min(400, restoredBreastSize)) : 50;
+  bodySettings.pecSize = clamp(Number(bodySettings.pecSize)||50,0,250);
+  bodySettings.buttSize = clamp(Number(bodySettings.buttSize)||50,0,200);
+  bodySettings.muscleDefinition = clamp(Number(bodySettings.muscleDefinition)||0,0,100);
   const autoDpr = matchMedia('(max-width: 780px)').matches || (navigator.deviceMemory && navigator.deviceMemory <= 4) ? 1.15 : 1.75;
   window.INK_ATLAS_DPR_CAP = bodySettings.renderQuality === 'high' ? 2 : bodySettings.renderQuality === 'battery' ? 1 : autoDpr;
   window.INK_ATLAS_BODY_PROFILE = bodySettings.profile;
@@ -367,28 +368,93 @@
   let appearanceProgram = null;
   function ensureAppearanceProgram() {
     if (appearanceProgram || software) return;
-    const vertex = `attribute vec3 aPosition;attribute vec3 aNormal;attribute vec2 aUV;uniform mat4 uViewProjection;uniform float uOffset;varying vec3 vNormal;varying vec2 vUV;void main(){vNormal=aNormal;vUV=aUV;gl_Position=uViewProjection*vec4(aPosition+aNormal*uOffset,1.);}`;
-    const fragment = `precision mediump float;uniform vec4 uColour;uniform vec3 uAccent;uniform vec4 uBounds;varying vec3 vNormal;varying vec2 vUV;void main(){if(vUV.x<uBounds.x||vUV.x>uBounds.y||vUV.y<uBounds.z||vUV.y>uBounds.w)discard;vec3 n=normalize(vNormal);float light=.54+.38*max(0.,dot(n,normalize(vec3(-.55,.82,1.1))))+.10*max(0.,dot(n,normalize(vec3(.72,.22,.40))));float weave=.025*sin(vUV.x*620.)*sin(vUV.y*710.);float edge=min(min(vUV.x-uBounds.x,uBounds.y-vUV.x),min(vUV.y-uBounds.z,uBounds.w-vUV.y));vec3 colour=mix(uAccent,uColour.rgb,smoothstep(0.,.014,edge));gl_FragColor=vec4(colour*(light+weave)+.018,uColour.a);}`;
+    const vertex = `attribute vec3 aPosition;attribute vec3 aNormal;attribute vec2 aUV;uniform mat4 uViewProjection;uniform float uOffset;uniform float uDepthBias;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){vNormal=aNormal;vUV=aUV;vPosition=aPosition;gl_Position=uViewProjection*vec4(aPosition+aNormal*uOffset,1.);gl_Position.z-=uDepthBias*gl_Position.w;}`;
+    const fragment = `precision mediump float;uniform vec4 uColour;uniform vec3 uAccent;uniform vec4 uBounds;uniform vec3 uWorldMin;uniform vec3 uWorldMax;uniform float uPattern;varying vec3 vNormal;varying vec3 vPosition;varying vec2 vUV;void main(){if(vUV.x<uBounds.x||vUV.x>uBounds.y||vUV.y<uBounds.z||vUV.y>uBounds.w||any(lessThan(vPosition,uWorldMin))||any(greaterThan(vPosition,uWorldMax)))discard;if(uPattern>.5&&uPattern<1.5){vec2 grid=abs(fract(vec2(vUV.x*28.+vUV.y*34.,vUV.x*28.-vUV.y*34.))-.5);if(min(grid.x,grid.y)>.105)discard;}vec3 n=normalize(vNormal);float light=.54+.38*max(0.,dot(n,normalize(vec3(-.55,.82,1.1))))+.10*max(0.,dot(n,normalize(vec3(.72,.22,.40))));float weave=.025*sin(vUV.x*620.)*sin(vUV.y*710.);float edge=min(min(vUV.x-uBounds.x,uBounds.y-vUV.x),min(vUV.y-uBounds.z,uBounds.w-vUV.y));vec3 colour=mix(uAccent,uColour.rgb,smoothstep(0.,.014,edge));gl_FragColor=vec4(colour*(light+weave)+.018,uColour.a);}`;
     const instance = gl.createProgram(); gl.attachShader(instance, shader(gl.VERTEX_SHADER, vertex)); gl.attachShader(instance, shader(gl.FRAGMENT_SHADER, fragment)); gl.linkProgram(instance);
-    appearanceProgram = { instance, pos:gl.getAttribLocation(instance,'aPosition'), norm:gl.getAttribLocation(instance,'aNormal'), uv:gl.getAttribLocation(instance,'aUV'), vp:gl.getUniformLocation(instance,'uViewProjection'), offset:gl.getUniformLocation(instance,'uOffset'), colour:gl.getUniformLocation(instance,'uColour'), accent:gl.getUniformLocation(instance,'uAccent'), bounds:gl.getUniformLocation(instance,'uBounds') };
+    appearanceProgram = { instance, pos:gl.getAttribLocation(instance,'aPosition'), norm:gl.getAttribLocation(instance,'aNormal'), uv:gl.getAttribLocation(instance,'aUV'), vp:gl.getUniformLocation(instance,'uViewProjection'), offset:gl.getUniformLocation(instance,'uOffset'), depthBias:gl.getUniformLocation(instance,'uDepthBias'), colour:gl.getUniformLocation(instance,'uColour'), accent:gl.getUniformLocation(instance,'uAccent'), bounds:gl.getUniformLocation(instance,'uBounds'), worldMin:gl.getUniformLocation(instance,'uWorldMin'), worldMax:gl.getUniformLocation(instance,'uWorldMax'), pattern:gl.getUniformLocation(instance,'uPattern') };
   }
   const colour4 = (hex, alpha=1) => { const value=String(hex||'#333333').replace('#',''),full=value.length===3?value.split('').map(c=>c+c).join(''):value;return [parseInt(full.slice(0,2),16)/255,parseInt(full.slice(2,4),16)/255,parseInt(full.slice(4,6),16)/255,alpha]; };
+  function fittedLayerStyle(item,mesh){
+    const name=`${item.id} ${item.name||''}`,fishnet=/fishnet|armsleeve02|lace|mesh|netting/i.test(name),sheer=!fishnet&&/stocking|pantyhose|transparent|sheer/i.test(name),texture=mesh.textureAverage?.slice(0,3),material=mesh.material.diffuseColor?.slice(0,3)||[.28,.30,.33];
+    let rgb=texture?texture.map((value,index)=>value*(material[index]??1)):material.slice();
+    // Several MakeHuman cut-out atlases store their holes as opaque black.
+    // For the body-conformal replacement use the supplied material hue, not
+    // the black atlas background, and generate the holes geometrically.
+    if(fishnet&&Math.max(...rgb)<.28){const hue=material.map((value,index)=>Math.max(value,texture?.[index]||0)),peak=Math.max(...hue,.001);rgb=hue.map(value=>value/peak*.46);}
+    const colour='#'+rgb.map(value=>Math.round(clamp(value,0,1)*255).toString(16).padStart(2,'0')).join('');
+    return {colour,pattern:fishnet?1:sheer?2:0,alpha:sheer?.48:1};
+  }
+  function sampledLayerColour(mesh,coverage,fallback){
+    const atlas=mesh.texturePixels;if(!atlas||!mesh.uvs?.length)return fallback;const channels=[[],[],[]],min=coverage.worldMin||[-Infinity,-Infinity,-Infinity],max=coverage.worldMax||[Infinity,Infinity,Infinity],stride=Math.max(1,Math.floor(mesh.positions.length/3/1400));
+    for(let vertex=0;vertex<mesh.positions.length/3;vertex+=stride){const at=vertex*3,x=mesh.positions[at],y=mesh.positions[at+1],z=mesh.positions[at+2];if(x<min[0]||x>max[0]||y<min[1]||y>max[1]||z<min[2]||z>max[2])continue;const u=clamp(mesh.uvs[vertex*2],0,1),v=clamp(1-mesh.uvs[vertex*2+1],0,1),pixel=(Math.min(atlas.size-1,Math.round(v*(atlas.size-1)))*atlas.size+Math.min(atlas.size-1,Math.round(u*(atlas.size-1))))*4;if(atlas.data[pixel+3]<96)continue;for(let channel=0;channel<3;channel++)channels[channel].push(atlas.data[pixel+channel]);}
+    if(channels[0].length<8)return fallback;const material=mesh.material?.diffuseColor||[1,1,1],rgb=channels.map((values,index)=>percentile(values,.5)*(material[index]??1)),hex=rgb.map(value=>Math.round(clamp(value,0,255)).toString(16).padStart(2,'0')).join('');return `#${hex}`;
+  }
+  function fittedLayerCoverage(mesh,partId,padding=.018,radialFull=true){
+    const part=partById[partId];if(!part?.positions||!mesh?.positions?.length)return null;
+    const partBounds=positionBounds(part.positions),side=partId.startsWith('left_')?-1:partId.startsWith('right_')?1:0,margin=.30,values=[];
+    // The backing must occupy only the portion of the anatomical surface that
+    // is actually enclosed by this fitted asset. A whole-part backing fixes a
+    // pinhole by painting the complete hand, forearm, foot or calf and is the
+    // source of the hard cuffs and sock-shaped boots seen in previous builds.
+    for(let at=0;at<mesh.positions.length;at+=3){const x=mesh.positions[at],y=mesh.positions[at+1],z=mesh.positions[at+2];if(side&&Math.sign(mesh.restPositions[at]||x||side)!==side)continue;if(x<partBounds.min[0]-margin||x>partBounds.max[0]+margin||y<partBounds.min[1]-margin||y>partBounds.max[1]+margin||z<partBounds.min[2]-margin||z>partBounds.max[2]+margin)continue;values.push(x,y,z);}
+    if(values.length<9)return null;const garmentBounds=positionBounds(values),partSize=boundsSize(partBounds),longitudinal=/torso|pelvis|thigh|calf/.test(partId)?1:partSize.indexOf(Math.max(...partSize)),worldMin=[],worldMax=[];
+    // Clip at the authored cuff/hem along the limb, but cover the complete
+    // radial cross-section inside it. This fills genuine mesh pinholes without
+    // turning a boot or glove into a whole-part body shell.
+    for(let axis=0;axis<3;axis++){const clipToGarment=axis===longitudinal||!radialFull;worldMin[axis]=clipToGarment?Math.max(partBounds.min[axis]-.006,garmentBounds.min[axis]-padding):partBounds.min[axis]-.006;worldMax[axis]=clipToGarment?Math.min(partBounds.max[axis]+.006,garmentBounds.max[axis]+padding):partBounds.max[axis]+.006;if(worldMax[axis]-worldMin[axis]<.004)return null;}
+    return {bounds:[0,1,0,1],worldMin,worldMax};
+  }
+  function appearanceOccludedPartIds(item){
+    const name=`${item?.id||''} ${item?.name||''}`;
+    if(item?.category==='Bottoms')return ['pelvis','left_thigh','right_thigh','left_calf','right_calf'];
+    if(item?.category==='Skirts')return ['pelvis','left_thigh','right_thigh'];
+    if(['Tops','Dresses'].includes(item?.category)&&!/open|cut.?out|strap|sleeveless|halter|apron|bikini|crop/i.test(name))return ['torso','pelvis','left_upper_arm','right_upper_arm','left_forearm','right_forearm'];
+    if(item?.category==='Shoes'&&!/sandal|flip|open|peep|barefoot/i.test(name))return ['left_foot','right_foot','left_calf','right_calf','left_thigh','right_thigh'];
+    if(item?.category==='Gloves'&&!/mma|fingerless|open/i.test(name))return ['left_hand','right_hand','left_forearm','right_forearm','left_upper_arm','right_upper_arm'];
+    if(item?.category==='Underlayers'&&/sock|stocking|pantyhose|leg.warmer/i.test(name))return ['left_foot','right_foot','left_calf','right_calf','left_thigh','right_thigh'];
+    if(item?.category==='Underlayers'&&/armsleeve/i.test(name))return ['left_forearm','right_forearm','left_upper_arm','right_upper_arm'];
+    if(item?.category==='Underlayers'&&/bra|bandeau|brief|pant(?:y|ies)|thong|slip|bootyshort|bikini.bottom/i.test(name))return ['torso','pelvis'];
+    return [];
+  }
   function appearancePasses() {
-    const equipped=bodySettings.equippedAssets||[],hairId=equipped.find(id=>appearanceById.get(id)?.category==='Hair'),hatId=equipped.find(id=>appearanceById.get(id)?.category==='Hats');let coverId=hairId;
+    const equipped=bodySettings.equippedAssets||[],passes=[],hairId=equipped.find(id=>appearanceById.get(id)?.category==='Hair'),hatId=equipped.find(id=>appearanceById.get(id)?.category==='Hats'),tightHat=hatId&&hatRequiresBareScalp(appearanceById.get(hatId));let coverId=tightHat?hatId:hairId;
     // A close-fitting, tall hat can expose the scalp through an authored crown
     // opening. Detect that class from its geometry rather than maintaining a
     // list of asset-specific offsets.
     if(!coverId&&hatId){const hat=meshAppearanceCache.get(hatId);if(hat){const bounds=positionBounds(hat.restPositions),size=boundsSize(bounds);if(size[1]>.70&&size[0]<.75)coverId=hatId;}}
-    if(!coverId)return [];
-    const average=meshAppearanceCache.get(coverId)?.textureAverage,colour=average?'#'+average.slice(0,3).map(value=>Math.round(clamp(value,0,1)*255).toString(16).padStart(2,'0')).join(''):(hairId?'#35261f':'#3b3b3b');
-    // A close, opaque scalp underlay fills texture cutout gaps at the crown.
-    // It follows the body head mesh, so it cannot float or expose an empty
-    // interior when a hairstyle has sparse roots or a centre part.
-    return [{part:'head',colour,accent:colour,alpha:1,offset:.0015,bounds:[0,1,.78,1]}];
+    if(coverId){
+      const coverItem=appearanceById.get(coverId),coverMesh=meshAppearanceCache.get(coverId),head=partById.head&&positionBounds(partById.head.positions),style=coverMesh?fittedLayerStyle(coverItem,coverMesh):null,average=coverMesh?.textureAverage,colour=style?.colour||(average?'#'+average.slice(0,3).map(value=>Math.round(clamp(value,0,1)*255).toString(16).padStart(2,'0')).join(''):(hairId?'#35261f':'#3b3b3b'));
+      // The backing is restricted to the crown in world space. UV-space
+      // cropping painted a hard rectangle across the forehead on some heads
+      // and still missed holes in swim caps and knitted hats whose atlases use
+      // a different UV orientation.
+      const isHat=coverItem?.category==='Hats';
+      // Hair and hat hole-fill belongs on the crown, never on the face. The
+      // head's forward axis is +Z in the imported MakeHuman body; capping it
+      // here removes the mask that a full-head material pass painted over the
+      // eyes, nose and mouth while retaining coverage on the top and rear.
+      passes.push({part:'head',colour,accent:colour,alpha:1,offset:.0015,bounds:[0,1,0,1],worldMin:[-99,head?head.max[1]-(isHat?.30:.18):-99,head?head.center[2]-(isHat?.10:0):-99],worldMax:[99,99,99]});
+    }
+    // Clothing is rendered as physical geometry.  Do not paint a second copy
+    // of its material onto the body beneath it: loose hems, open necklines and
+    // transparent fabrics otherwise leave garment-coloured patches on skin.
+    // The sole underlay retained here is the crown fill above, which closes
+    // authored hair-cap holes without touching the face or body.
+    return passes;
+  }
+  function appearanceBodyClipBoxes(){
+    // Never carve axis-aligned volumes out of the anatomical mesh.  A garment
+    // may be open, asymmetric, fingerless, fishnet, or split into disconnected
+    // components; its AABB cannot describe what it actually covers.  These
+    // clip boxes caused the apparent missing shoulders, wrists, pelvis and
+    // lower legs reported for otherwise unrelated assets.  Ordinary depth
+    // testing now provides exact per-pixel occlusion and keeps tattoos visible
+    // wherever cloth is not physically in front of them.
+    return [];
   }
   function renderAppearanceLayers(){
     if(software)return;const passes=appearancePasses();if(!passes.length)return;ensureAppearanceProgram();const pgr=appearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(-.8,-.8);
-    for(const pass of passes){const part=partById[pass.part];if(!part)continue;const colour=colour4(pass.colour,pass.alpha),edge=colour4(pass.accent);gl.uniform1f(pgr.offset,pass.offset);gl.uniform4fv(pgr.colour,colour);gl.uniform3fv(pgr.accent,edge.slice(0,3));gl.uniform4fv(pgr.bounds,pass.bounds);if(pass.alpha<1){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);}gl.bindBuffer(gl.ARRAY_BUFFER,part.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,part.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ARRAY_BUFFER,part.ub);gl.vertexAttribPointer(pgr.uv,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.uv);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,part.ib);gl.drawElements(gl.TRIANGLES,part.count,part.indexType||gl.UNSIGNED_SHORT,0);if(pass.alpha<1){gl.depthMask(true);gl.disable(gl.BLEND);}}
+    for(const pass of passes){const part=partById[pass.part];if(!part)continue;const headUnderlay=pass.part==='head',colour=colour4(pass.colour,pass.alpha),edge=colour4(pass.accent),backingIndices=headUnderlay?part.indices:(part.appearanceBaseIndices||part.indices);if(!headUnderlay&&!part.appearanceBackingIb){part.appearanceBackingIb=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,part.appearanceBackingIb);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,backingIndices,gl.STATIC_DRAW);}gl.uniform1f(pgr.offset,pass.offset);gl.uniform1f(pgr.depthBias,headUnderlay?0:.0011);gl.uniform4fv(pgr.colour,colour);gl.uniform3fv(pgr.accent,edge.slice(0,3));gl.uniform4fv(pgr.bounds,pass.bounds);gl.uniform3fv(pgr.worldMin,pass.worldMin||[-99,-99,-99]);gl.uniform3fv(pgr.worldMax,pass.worldMax||[99,99,99]);gl.uniform1f(pgr.pattern,pass.pattern||0);if(pass.alpha<1){gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.depthMask(false);}gl.bindBuffer(gl.ARRAY_BUFFER,part.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,part.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ARRAY_BUFFER,part.ub);gl.vertexAttribPointer(pgr.uv,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.uv);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,headUnderlay?part.ib:part.appearanceBackingIb);gl.drawElements(gl.TRIANGLES,headUnderlay?part.count:backingIndices.length,part.indexType||gl.UNSIGNED_SHORT,0);if(pass.alpha<1){gl.depthMask(true);gl.disable(gl.BLEND);}}
     gl.disable(gl.POLYGON_OFFSET_FILL);
   }
 
@@ -399,7 +465,7 @@
   const appearanceLoadPromises = new Map();
   let appearanceFitRevision=1,appearanceRefits=0;
   const applyPoseBeforeAppearanceCache=applyPose;
-  applyPose=function applyPoseWithAppearanceInvalidation(){appearanceFitRevision++;return applyPoseBeforeAppearanceCache();};
+  applyPose=function applyPoseWithAppearanceInvalidation(){appearanceFitRevision++;const result=applyPoseBeforeAppearanceCache();updateAppearanceBodyMask();return result;};
   const baseVertexMapCache = new Map();
   let canonicalBasePositionCache = null;
   function typedArrayFromBase64(encoded, Type) {
@@ -438,13 +504,25 @@
       const quantized = typedArrayFromBase64(raw.positions, Uint16Array); restPositions = new Float32Array(quantized.length);
       for (let i = 0; i < quantized.length; i++) restPositions[i] = raw.positionMin[i % 3] + quantized[i] * raw.positionScale[i % 3];
     } else restPositions = typedArrayFromBase64(raw.positions, Float32Array);
-    const indices = typedArrayFromBase64(raw.indices, raw.indexType === 'u32' ? Uint32Array : Uint16Array);
+    const sourceIndices = typedArrayFromBase64(raw.indices, raw.indexType === 'u32' ? Uint32Array : Uint16Array);let indices=sourceIndices;
+    // A few community glove and footwear exports contain triangles that join
+    // the wearable mesh to a distant helper vertex. Those triangles become
+    // screen-spanning spikes even though the actual authored object is sound.
+    if(['Shoes','Gloves'].includes(catalog?.category)){
+      const gloves=catalog.category==='Gloves',malformedMma=gloves&&/mma/i.test(`${catalog.id} ${catalog.name}`),kept=[];
+      // The MMA export contains four otherwise valid glove shells with a few
+      // vertices stretched more than three body units upward. Removing the
+      // entire connected shell also removed the palm and knuckle coverage.
+      // Clip only triangles that cross the corrupted source range; the intact
+      // lower shell and all finger components then retain their authored form.
+      for(let at=0;at<sourceIndices.length;at+=3){const ids=[sourceIndices[at],sourceIndices[at+1],sourceIndices[at+2]];let longest=0,outside=false;for(const id of ids){const y=restPositions[id*3+1];if(malformedMma&&(y<.15||y>1.35))outside=true;}for(const [first,second] of [[0,1],[1,2],[2,0]]){const a=ids[first]*3,b=ids[second]*3;longest=Math.max(longest,Math.hypot(restPositions[a]-restPositions[b],restPositions[a+1]-restPositions[b+1],restPositions[a+2]-restPositions[b+2]));}if(!outside&&longest<=.75)kept.push(...ids);}if(kept.length!==sourceIndices.length)indices=new sourceIndices.constructor(kept);
+    }
     let uvs=new Float32Array(restPositions.length/3*2);if(raw.uvs){const encodedUV=typedArrayFromBase64(raw.uvs,Uint16Array);for(let i=0;i<encodedUV.length;i++)uvs[i]=encodedUV[i]/65535;}
     let bindOffsets=null;if(raw.bindOffsets){const encoded=typedArrayFromBase64(raw.bindOffsets,raw.bindOffsetType==='q8'?Uint8Array:Uint16Array);bindOffsets=new Float32Array(encoded.length);for(let i=0;i<encoded.length;i++)bindOffsets[i]=raw.bindOffsetMin[i%3]+encoded[i]*raw.bindOffsetScale[i%3];}
     let bindWeights=null,bindWeightDivisor=255;if(raw.bindWeights&&raw.bindWeightType==='q16x2'){const encoded=typedArrayFromBase64(raw.bindWeights,Uint16Array),count=restPositions.length/3;bindWeights=new Float32Array(count*3);for(let vertex=0;vertex<count;vertex++){const a=raw.bindWeightMin[0]+encoded[vertex*2]*raw.bindWeightScale[0],b=raw.bindWeightMin[1]+encoded[vertex*2+1]*raw.bindWeightScale[1];bindWeights[vertex*3]=a;bindWeights[vertex*3+1]=b;bindWeights[vertex*3+2]=1-a-b;}bindWeightDivisor=1;}else if(raw.bindWeights){bindWeights=typedArrayFromBase64(raw.bindWeights,raw.bindWeightType==='u16'?Uint16Array:Uint8Array);bindWeightDivisor=raw.bindWeightType==='u16'?65535:255;}
-    const mesh = { id, catalog, material:raw.material||{}, textureURL:raw.texture||'', textureReady:false, restPositions, positions:restPositions.slice(), normals:new Float32Array(restPositions.length), uvs, indices, deleteVerts:raw.deleteVerts?typedArrayFromBase64(raw.deleteVerts,Uint16Array):null, bindIndices:raw.bindIndices?typedArrayFromBase64(raw.bindIndices,Uint16Array):null, bindWeights, bindWeightDivisor, bindOffsets, bindScaleRefs:raw.bindScaleRefs||null, bindCanonicalScale:Number(raw.canonicalScale)||6.88/(8.4967- -8.4488), bindRig:null, bindLocalOffsets:null, bindFrameScales:null, bindNeutralAnchors:null, bindRestPositions:null, bindSourceError:null, fitStats:null, count:indices.length, indexType:indices instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, pb:gl.createBuffer(), nb:gl.createBuffer(), ub:gl.createBuffer(), ib:gl.createBuffer(), texture:gl.createTexture() };
+    const mesh = { id, catalog, material:raw.material||{}, textureURL:raw.texture||'', textureReady:false, restPositions, positions:restPositions.slice(), normals:new Float32Array(restPositions.length), uvs, indices, watchParts:raw.watchParts?typedArrayFromBase64(raw.watchParts,Uint8Array):null, deleteVerts:raw.deleteVerts?typedArrayFromBase64(raw.deleteVerts,Uint16Array):null, bindIndices:raw.bindIndices?typedArrayFromBase64(raw.bindIndices,Uint16Array):null, bindWeights, bindWeightDivisor, bindOffsets, bindScaleRefs:raw.bindScaleRefs||null, bindCanonicalScale:Number(raw.canonicalScale)||6.88/(8.4967- -8.4488), bindRig:null, bindLocalOffsets:null, bindFrameScales:null, bindNeutralAnchors:null, bindRestPositions:null, bindSourceError:null, fitStats:null, count:indices.length, indexType:indices instanceof Uint32Array?gl.UNSIGNED_INT:gl.UNSIGNED_SHORT, pb:gl.createBuffer(), nb:gl.createBuffer(), ub:gl.createBuffer(), ib:gl.createBuffer(), texture:gl.createTexture() };
     recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.ub);gl.bufferData(gl.ARRAY_BUFFER,mesh.uvs,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,255,255,255]));
-    if(mesh.textureURL){const image=new Image();image.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);try{const size=128,canvas=document.createElement('canvas');canvas.width=canvas.height=size;const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(image,0,0,size,size);const rgba=context.getImageData(0,0,size,size).data,alpha=new Uint8Array(size*size);let opaque=0,weight=0,red=0,green=0,blue=0;for(let pixel=0;pixel<alpha.length;pixel++){const a=rgba[pixel*4+3];alpha[pixel]=a;if(a>=250)opaque++;if(a>=96){const w=a/255;weight+=w;red+=rgba[pixel*4]*w;green+=rgba[pixel*4+1]*w;blue+=rgba[pixel*4+2]*w;}}mesh.alphaMap={data:alpha,size,opaqueFraction:opaque/alpha.length};if(weight)mesh.textureAverage=[red/(255*weight),green/(255*weight),blue/(255*weight),1];}catch(_){}mesh.textureReady=true;delete mesh.backing;if((bodySettings.equippedAssets||[]).includes(id))updateAppearanceBodyMask();requestDraw();};image.src=mesh.textureURL;}
+    if(mesh.textureURL){const image=new Image();image.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);try{const size=128,canvas=document.createElement('canvas');canvas.width=canvas.height=size;const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(image,0,0,size,size);const rgba=context.getImageData(0,0,size,size).data,alpha=new Uint8Array(size*size);let opaque=0,weight=0,red=0,green=0,blue=0;for(let pixel=0;pixel<alpha.length;pixel++){const a=rgba[pixel*4+3];alpha[pixel]=a;if(a>=250)opaque++;if(a>=96){const w=a/255;weight+=w;red+=rgba[pixel*4]*w;green+=rgba[pixel*4+1]*w;blue+=rgba[pixel*4+2]*w;}}let sampled=0,sampledOpaque=0,sampledLow=0,sampledAlpha=0;const triangleStride=Math.max(1,Math.floor(mesh.indices.length/3/6000)),sampleWeights=[[1/3,1/3,1/3],[.5,.5,0],[0,.5,.5],[.5,0,.5]];for(let tri=0;tri<mesh.indices.length/3;tri+=triangleStride){const ids=[mesh.indices[tri*3],mesh.indices[tri*3+1],mesh.indices[tri*3+2]];for(const weights of sampleWeights){let u=0,v=0;for(let corner=0;corner<3;corner++){u+=mesh.uvs[ids[corner]*2]*weights[corner];v+=mesh.uvs[ids[corner]*2+1]*weights[corner];}const x=Math.min(size-1,Math.max(0,Math.round(u*(size-1)))),y=Math.min(size-1,Math.max(0,Math.round((1-v)*(size-1)))),a=alpha[y*size+x];sampled++;sampledAlpha+=a;if(a>=250)sampledOpaque++;if(a<96)sampledLow++;}}mesh.alphaMap={data:alpha,size,opaqueFraction:opaque/alpha.length,sampledOpaqueFraction:sampled?sampledOpaque/sampled:1,sampledLowFraction:sampled?sampledLow/sampled:0,sampledMean:sampled?sampledAlpha/(255*sampled):1};mesh.texturePixels={data:new Uint8ClampedArray(rgba),size};if(weight)mesh.textureAverage=[red/(255*weight),green/(255*weight),blue/(255*weight),1];}catch(_){}mesh.textureReady=true;delete mesh.backing;if((bodySettings.equippedAssets||[]).includes(id))updateAppearanceBodyMask();requestDraw();};image.src=mesh.textureURL;}
     meshAppearanceCache.set(id,mesh);return mesh;
   }
   function attachmentFrame(points) {
@@ -466,18 +544,28 @@
     if(dot(frame.n,outward)<0)frame={...frame,y:scale(frame.y,-1),n:scale(frame.n,-1)};
     return frame;
   }
+  function boundAttachmentFrame(mesh,at,points,anchor){
+    if(mesh.catalog?.category!=='Bottoms'||!mesh.bindFrameSigns)return outwardAttachmentFrame(points,anchor);
+    let frame=attachmentFrame(points);if(mesh.bindFrameSigns[at/3]<0)frame={...frame,y:scale(frame.y,-1),n:scale(frame.n,-1)};return frame;
+  }
   function meshBindingWeights(mesh,at){const divisor=mesh.bindWeightDivisor||255,weights=[mesh.bindWeights[at]/divisor,mesh.bindWeights[at+1]/divisor,mesh.bindWeights[at+2]/divisor],total=weights[0]+weights[1]+weights[2]||1;return weights.map(value=>value/total);}
   function meshProxyScales(mesh,baseMap,pointAt){
     return [0,1,2].map(axis=>{const ref=mesh.bindScaleRefs?.[axis];if(!ref||ref.length<3||ref[2]===0)return mesh.bindCanonicalScale;const first=baseMap[ref[0]],second=baseMap[ref[1]];if(first===undefined||second===undefined)return mesh.bindCanonicalScale;const a=pointAt(first),b=pointAt(second),value=Math.abs(a[axis]-b[axis])/Math.abs(ref[2]);return Number.isFinite(value)&&value>1e-8?value:mesh.bindCanonicalScale;});
   }
-  function appearanceClearance(category){return {Eyes:.0008,Eyebrows:.0015,Eyelashes:.0015,'Finger nails':.005,'Toe nails':.005,'Facial hair':.0008,Hair:.0025,Hats:.0025,Eyewear:.0025,Underlayers:.004,Tops:.011,Dresses:.014,Bottoms:.013,Skirts:.016,Shoes:.016,Gloves:.012}[category]??.006;}
+  function appearanceClearance(category){return {Eyes:.0008,Eyebrows:.0015,Eyelashes:.0015,'Finger nails':.005,'Toe nails':.005,'Facial hair':.0008,Hair:.0025,Hats:.0025,Eyewear:.0025,Underlayers:.008,Tops:.012,Dresses:.015,Bottoms:.016,Skirts:.017,Shoes:.011,Gloves:.010,'Wrist accessories':.006,Rings:.003,Necklaces:.009}[category]??.006;}
   function proxyGuidePoint(mesh,vertex,canonical){const at=vertex*3;if(!canonical||!mesh.bindIndices||!mesh.bindWeights)return [mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]];const weights=meshBindingWeights(mesh,at),point=[0,0,0];for(let corner=0;corner<3;corner++){const source=mesh.bindIndices[at+corner]*3;if(source+2>=canonical.length)continue;for(let axis=0;axis<3;axis++)point[axis]+=canonical[source+axis]*weights[corner];}return point;}
   function prepareSurfaceBindings(mesh) {
     if (!importedRig?.surfaceAttachment || !importedRig.neutralPoint) return false;
     if (mesh.bindRig === importedRig && mesh.bindSurfaceIndices) return true;
     const count=mesh.restPositions.length/3,indices=new Uint32Array(count*3),weights=new Float32Array(count*3),offsets=new Float32Array(count*3),signs=new Int8Array(count),distances=new Float32Array(count),neutralAnchors=new Float32Array(count*3),guidePositions=new Float32Array(count*3),fittedRest=new Float32Array(count*3),sourceErrors=[],clearance=appearanceClearance(mesh.catalog?.category),canonical=canonicalBasePositions();
     for(let vertex=0;vertex<count;vertex++){
-      const at=vertex*3,rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],guide=proxyGuidePoint(mesh,vertex,canonical),attachment=importedRig.surfaceAttachment(guide);if(!attachment)return false;indices.set(attachment.ids,at);weights.set(attachment.weights,at);guidePositions.set(guide,at);const points=attachment.ids.map(index=>importedRig.neutralPoint(index)),anchor=[0,0,0];for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*attachment.weights[corner];const frame=outwardAttachmentFrame(points,anchor),offset=sub(rest,guide),sign=1,local=[dot(offset,frame.x),dot(offset,frame.y),Math.max(clearance,dot(offset,frame.n))],expected=[anchor[0]+frame.x[0]*local[0]+frame.y[0]*local[1]+frame.n[0]*local[2],anchor[1]+frame.x[1]*local[0]+frame.y[1]*local[1]+frame.n[1]*local[2],anchor[2]+frame.x[2]*local[0]+frame.y[2]*local[1]+frame.n[2]*local[2]];offsets.set(local,at);signs[vertex]=sign;distances[vertex]=Math.hypot(...offset);neutralAnchors.set(anchor,at);fittedRest.set(expected,at);sourceErrors.push(Math.hypot(expected[0]-rest[0],expected[1]-rest[1],expected[2]-rest[2]));
+      const at=vertex*3,rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]];
+      // Several community trouser proxies were authored against an hm08 base
+      // whose numeric vertex order differs from the converted body used here.
+      // Their OBJ geometry is nevertheless in the correct MakeHuman neutral
+      // space. Register bottoms from that geometry itself; replaying the stale
+      // proxy indices attaches crotch and shin panels to unrelated triangles.
+      const guide=mesh.catalog?.category==='Bottoms'?rest:proxyGuidePoint(mesh,vertex,canonical),attachment=importedRig.surfaceAttachment(guide);if(!attachment)return false;indices.set(attachment.ids,at);weights.set(attachment.weights,at);guidePositions.set(guide,at);const points=attachment.ids.map(index=>importedRig.neutralPoint(index)),anchor=[0,0,0];for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*attachment.weights[corner];let frame=outwardAttachmentFrame(points,anchor),sign=1;if(mesh.catalog?.category==='Bottoms'){const raw=attachmentFrame(points),toGarment=sub(rest,anchor);sign=dot(raw.n,toGarment)<0?-1:1;frame=sign<0?{...raw,y:scale(raw.y,-1),n:scale(raw.n,-1)}:raw;}const offset=sub(rest,guide),local=[dot(offset,frame.x),dot(offset,frame.y),Math.max(clearance,dot(offset,frame.n))],expected=[anchor[0]+frame.x[0]*local[0]+frame.y[0]*local[1]+frame.n[0]*local[2],anchor[1]+frame.x[1]*local[0]+frame.y[1]*local[1]+frame.n[1]*local[2],anchor[2]+frame.x[2]*local[0]+frame.y[2]*local[1]+frame.n[2]*local[2]];offsets.set(local,at);signs[vertex]=sign;distances[vertex]=Math.hypot(...offset);neutralAnchors.set(anchor,at);fittedRest.set(expected,at);sourceErrors.push(Math.hypot(expected[0]-rest[0],expected[1]-rest[1],expected[2]-rest[2]));
     }
     sourceErrors.sort((a,b)=>a-b);mesh.bindRig=importedRig;mesh.bindSurfaceIndices=indices;mesh.bindSurfaceWeights=weights;mesh.bindFrameSigns=signs;mesh.bindSurfaceDistances=distances;mesh.bindLocalOffsets=offsets;mesh.bindNeutralAnchors=neutralAnchors;mesh.bindGuidePositions=guidePositions;mesh.bindRestPositions=fittedRest;mesh.bindSourceError={median:sourceErrors[Math.floor(sourceErrors.length*.5)]||0,p95:sourceErrors[Math.floor(sourceErrors.length*.95)]||0,max:sourceErrors.at(-1)||0};return true;
   }
@@ -510,7 +598,7 @@
   function alignEyewearToFace(mesh){
     const eyes=partById.eyes?.positions,ears=bodyPrimitiveBounds('earSkin'),head=partById.head?.positions;if(!eyes||!head)return 0;const eyeBounds=positionBounds(eyes),eyeSize=boundsSize(eyeBounds),source=positionBounds(mesh.positions),sourceSize=boundsSize(source),earWidth=ears?ears.max[0]-ears.min[0]:positionBounds(head).max[0]*2,frontSource=[];
     for(let at=0;at<mesh.positions.length;at+=3)if(mesh.positions[at+2]>source.center[2]&&mesh.positions[at+1]>source.min[1]+sourceSize[1]*.18)frontSource.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);
-    const lensSource=frontSource.length?positionBounds(frontSource):source,lensWidth=Math.max(.001,lensSource.max[0]-lensSource.min[0]),templeScale=earWidth*.94/sourceSize[0],lensScale=eyeSize[0]*1.22/lensWidth,uniform=clamp(median([templeScale,lensScale]),.72,1.34),faceFront=[];
+    const lensSource=frontSource.length?positionBounds(frontSource):source,lensWidth=Math.max(.001,lensSource.max[0]-lensSource.min[0]),templeScale=earWidth*.92/sourceSize[0],lensScale=eyeSize[0]*1.18/lensWidth,faceWidthScale=.56/sourceSize[0],uniform=clamp(Math.min(templeScale,lensScale*1.06,faceWidthScale),.08,1.20),faceFront=[];
     for(let at=0;at<head.length;at+=3)if(head[at+1]>eyeBounds.min[1]-.05&&head[at+1]<eyeBounds.max[1]+.09&&Math.abs(head[at]-eyeBounds.center[0])<eyeSize[0]*.68)faceFront.push(head[at+2]);
     const targetFront=(faceFront.length?percentile(faceFront,.94):eyeBounds.max[2])+.014,scaledFront=source.center[2]+(lensSource.max[2]-source.center[2])*uniform,translation=[eyeBounds.center[0]-source.center[0],eyeBounds.center[1]+.008-source.center[1],targetFront-scaledFront];let largest=0;
     for(let at=0;at<mesh.positions.length;at+=3)for(let axis=0;axis<3;axis++){const value=source.center[axis]+(mesh.positions[at+axis]-source.center[axis])*uniform+translation[axis];largest=Math.max(largest,Math.abs(value-mesh.positions[at+axis]));mesh.positions[at+axis]=value;}
@@ -518,13 +606,22 @@
     return largest;
   }
   function currentSurfaceAnchor(mesh,at){const anchor=[0,0,0];for(let corner=0;corner<3;corner++){const point=importedRig.worldPoint(mesh.bindSurfaceIndices[at+corner]),weight=mesh.bindSurfaceWeights[at+corner];for(let axis=0;axis<3;axis++)anchor[axis]+=point[axis]*weight;}return anchor;}
+  function currentProxyAnchor(mesh,at){
+    const map=baseVertexMap();if(!map||!mesh.bindIndices||!mesh.bindWeights)return null;const anchor=[0,0,0],weights=meshBindingWeights(mesh,at);
+    for(let corner=0;corner<3;corner++){const mapped=map[mesh.bindIndices[at+corner]];if(mapped===undefined)return null;const point=importedRig.worldPoint(mapped);for(let axis=0;axis<3;axis++)anchor[axis]+=point[axis]*weights[corner];}
+    return anchor;
+  }
   function fitRigidHatToHead(mesh){
     const headPart=partById.head;if(!headPart?.restPositions||!headPart.positions)return null;
-    const neutral=positionBounds(headPart.restPositions),current=positionBounds(headPart.positions),neutralSize=boundsSize(neutral),currentSize=boundsSize(current);
+    const neutral=positionBounds(headPart.restPositions),current=positionBounds(headPart.positions),neutralSize=boundsSize(neutral),currentSize=boundsSize(current),hatBounds=positionBounds(mesh.restPositions),hatSize=boundsSize(hatBounds);
     // A hat is a rigid manufactured object. Follow the head with one uniform
     // scale and a translation, preserving the authored crown, brim and any
     // disconnected ribbons instead of pulling each vertex toward the scalp.
-    const uniform=clamp(median([currentSize[0]/neutralSize[0],currentSize[1]/neutralSize[1],currentSize[2]/neutralSize[2]]),.78,1.22),translation=current.center.map((value,axis)=>value-neutral.center[axis]*uniform);let maxMotion=0,invalid=0;
+    let uniform=clamp(median([currentSize[0]/neutralSize[0],currentSize[1]/neutralSize[1],currentSize[2]/neutralSize[2]]),.78,1.22);
+    if(hatRequiresBareScalp(mesh.catalog)){
+      const scalpValues=[];for(let at=0;at<headPart.positions.length;at+=3)if(headPart.positions[at+1]>current.max[1]-.58)scalpValues.push(headPart.positions[at],headPart.positions[at+1],headPart.positions[at+2]);if(scalpValues.length){const scalp=boundsSize(positionBounds(scalpValues));uniform=clamp(Math.max(uniform,(scalp[0]+.018)/hatSize[0],(scalp[2]+.018)/hatSize[2]),.78,1.30);}
+    }
+    const translation=current.center.map((value,axis)=>value-neutral.center[axis]*uniform);let maxMotion=0,invalid=0;
     for(let at=0;at<mesh.restPositions.length;at+=3)for(let axis=0;axis<3;axis++){const value=mesh.restPositions[at+axis]*uniform+translation[axis];mesh.positions[at+axis]=value;maxMotion=Math.max(maxMotion,Math.abs(value-mesh.restPositions[at+axis]));if(!Number.isFinite(value))invalid++;}
     return {maxMotion,invalid:invalid/3,uniform};
   }
@@ -549,13 +646,25 @@
     correction=clamp(correction,wideBrim?-.26:-.22,.26);for(let at=1;at<mesh.positions.length;at+=3)mesh.positions[at]+=correction;return Math.abs(correction);
   }
   function alignHairToScalp(mesh){
-    const head=partById.head&&positionBounds(partById.head.positions);if(!head||!mesh.bindSurfaceIndices)return 0;const gaps=[];for(let vertex=0;vertex<mesh.positions.length/3;vertex++){const at=vertex*3,anchor=currentSurfaceAnchor(mesh,at);if(anchor[1]<head.max[1]-.43)continue;gaps.push(mesh.positions[at+1]-anchor[1]);}const correction=gaps.length?clamp(.012-percentile(gaps,.08),-.34,.34):0,bounds=positionBounds(mesh.positions),xCorrection=clamp(head.center[0]-bounds.center[0],-.12,.12);
+    const head=partById.head&&positionBounds(partById.head.positions);if(!head)return 0;const anchors=new Array(mesh.positions.length/3),gaps=[];
+    for(let vertex=0;vertex<anchors.length;vertex++){const at=vertex*3,anchor=mesh.bindSurfaceIndices?currentSurfaceAnchor(mesh,at):currentProxyAnchor(mesh,at);anchors[vertex]=anchor;if(anchor&&anchor[1]>=head.max[1]-.43)gaps.push(mesh.positions[at+1]-anchor[1]);}
+    const correction=gaps.length?clamp(.012-percentile(gaps,.08),-.34,.34):0,bounds=positionBounds(mesh.positions),xCorrection=clamp(head.center[0]-bounds.center[0],-.12,.12);let largest=Math.max(Math.abs(correction),Math.abs(xCorrection));
     for(let at=0;at<mesh.positions.length;at+=3){mesh.positions[at]+=xCorrection;mesh.positions[at+1]+=correction;}
-    return Math.max(Math.abs(correction),Math.abs(xCorrection));
+    // Proxy anchors already identify the matching scalp point.  A small radial
+    // clearance is enough to prevent crown skin from showing through, without
+    // performing another nearest-triangle search for every hair vertex.
+    for(let vertex=0;vertex<anchors.length;vertex++){const anchor=anchors[vertex];if(!anchor||anchor[1]<head.min[1]+.15)continue;const at=vertex*3,outwardNormal=normal([anchor[0]-head.center[0],(anchor[1]-head.center[1])*.55,anchor[2]-head.center[2]]),distance=(mesh.positions[at]-anchor[0])*outwardNormal[0]+(mesh.positions[at+1]-anchor[1])*outwardNormal[1]+(mesh.positions[at+2]-anchor[2])*outwardNormal[2],outward=clamp(.012-distance,0,.065);if(!outward)continue;for(let axis=0;axis<3;axis++)mesh.positions[at+axis]+=outwardNormal[axis]*outward;largest=Math.max(largest,outward);}
+    // The face is not spherical, so a radial scalp correction alone can leave
+    // forehead or temple polygons in front of a fringe.  Resolve only strands
+    // whose proxy anchor is on the front half against a compact XY depth field;
+    // back hair is deliberately excluded and cannot be pulled through the head.
+    const cell=.025,bins=new Map(),key=(x,y)=>`${Math.floor(x/cell)},${Math.floor(y/cell)}`,headPositions=partById.head.positions;for(let at=0;at<headPositions.length;at+=3){const id=key(headPositions[at],headPositions[at+1]),front=bins.get(id);if(front===undefined||headPositions[at+2]>front)bins.set(id,headPositions[at+2]);}
+    for(let vertex=0;vertex<anchors.length;vertex++){const anchor=anchors[vertex];if(!anchor||anchor[2]<head.center[2]-.02||anchor[1]<head.center[1]-.55)continue;const at=vertex*3,cx=Math.floor(mesh.positions[at]/cell),cy=Math.floor(mesh.positions[at+1]/cell);let front=-Infinity;for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++){const value=bins.get(`${cx+dx},${cy+dy}`);if(value!==undefined)front=Math.max(front,value);}if(!Number.isFinite(front))continue;const forward=clamp(front+.010-mesh.positions[at+2],0,.14);if(!forward)continue;mesh.positions[at+2]+=forward;largest=Math.max(largest,forward);}
+    return largest;
   }
   function enforceSurfaceClearance(mesh,minDistance,maxCorrection,accept=()=>true){
     if(!mesh.bindSurfaceIndices)return 0;let largest=0;
-    for(let vertex=0;vertex<mesh.positions.length/3;vertex++){const at=vertex*3,anchor=currentSurfaceAnchor(mesh,at);if(!accept(anchor))continue;const points=[0,1,2].map(corner=>importedRig.worldPoint(mesh.bindSurfaceIndices[at+corner])),frame=outwardAttachmentFrame(points,anchor),position=[mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]],distance=dot(sub(position,anchor),frame.n),correction=clamp(minDistance-distance,0,maxCorrection);if(!correction)continue;for(let axis=0;axis<3;axis++)mesh.positions[at+axis]+=frame.n[axis]*correction;largest=Math.max(largest,correction);}
+    for(let vertex=0;vertex<mesh.positions.length/3;vertex++){const at=vertex*3,anchor=currentSurfaceAnchor(mesh,at);if(!accept(anchor))continue;const points=[0,1,2].map(corner=>importedRig.worldPoint(mesh.bindSurfaceIndices[at+corner])),frame=boundAttachmentFrame(mesh,at,points,anchor),position=[mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]],distance=dot(sub(position,anchor),frame.n),correction=clamp(minDistance-distance,0,maxCorrection);if(!correction)continue;for(let axis=0;axis<3;axis++)mesh.positions[at+axis]+=frame.n[axis]*correction;largest=Math.max(largest,correction);}
     return largest;
   }
   function enforceFaceForwardClearance(mesh,minDistance=.010,maxCorrection=.120){
@@ -576,8 +685,8 @@
     for(const side of ['left','right']){
       const foot=partById[side+'_foot'];if(!foot)continue;const footBounds=positionBounds(foot.positions),indices=[],sign=side==='left'?-1:1;
       for(let at=0;at<mesh.positions.length;at+=3)if((mesh.restPositions[at]||mesh.positions[at])*sign>=0)indices.push(at);
-      if(!indices.length)continue;const values=[];for(const at of indices)values.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);const shoeBounds=positionBounds(values),shoeWidth=Math.max(.001,shoeBounds.max[0]-shoeBounds.min[0]),shoeDepth=Math.max(.001,shoeBounds.max[2]-shoeBounds.min[2]),footWidth=footBounds.max[0]-footBounds.min[0],footDepth=footBounds.max[2]-footBounds.min[2],scaleX=clamp((footWidth+.055)/shoeWidth,.82,1.18),scaleZ=clamp((footDepth+.12)/shoeDepth,.82,1.20),targetY=footBounds.min[1]-.018,moveY=clamp(targetY-shoeBounds.min[1],-.22,.22),targetZ=footBounds.center[2]+.025;
-      for(const at of indices){const x=footBounds.center[0]+(mesh.positions[at]-shoeBounds.center[0])*scaleX,z=targetZ+(mesh.positions[at+2]-shoeBounds.center[2])*scaleZ;largest=Math.max(largest,Math.abs(x-mesh.positions[at]),Math.abs(moveY),Math.abs(z-mesh.positions[at+2]));mesh.positions[at]=x;mesh.positions[at+1]+=moveY;mesh.positions[at+2]=z;}
+      if(!indices.length)continue;const values=[];for(const at of indices)values.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);const shoeBounds=positionBounds(values),shoeWidth=Math.max(.001,shoeBounds.max[0]-shoeBounds.min[0]),shoeDepth=Math.max(.001,shoeBounds.max[2]-shoeBounds.min[2]),shoeHeight=shoeBounds.max[1]-shoeBounds.min[1],footWidth=footBounds.max[0]-footBounds.min[0],footDepth=footBounds.max[2]-footBounds.min[2],boot=shoeHeight>.65,widthAllowance=boot?.14:.075,scaleX=clamp((footWidth+widthAllowance)/shoeWidth,.82,1.30),scaleZ=clamp((footDepth+.14)/shoeDepth,.82,1.28),targetY=footBounds.min[1]-.018,moveY=clamp(targetY-shoeBounds.min[1],-.22,.22),targetX=footBounds.center[0]-sign*(boot?.065:.012),targetZ=footBounds.center[2]+.025;
+      for(const at of indices){const x=targetX+(mesh.positions[at]-shoeBounds.center[0])*scaleX,z=targetZ+(mesh.positions[at+2]-shoeBounds.center[2])*scaleZ;largest=Math.max(largest,Math.abs(x-mesh.positions[at]),Math.abs(moveY),Math.abs(z-mesh.positions[at+2]));mesh.positions[at]=x;mesh.positions[at+1]+=moveY;mesh.positions[at+2]=z;}
     }
     return largest;
   }
@@ -588,10 +697,39 @@
       const distal=side==='left'?limbBounds.max[0]-(limbBounds.max[0]-limbBounds.min[0])*.52:limbBounds.min[0]+(limbBounds.max[0]-limbBounds.min[0])*.52;
       for(let at=0;at<limb.positions.length;at+=3)if(side==='left'?limb.positions[at]<distal:limb.positions[at]>distal)targetValues.push(limb.positions[at],limb.positions[at+1],limb.positions[at+2]);
       for(let at=0;at<mesh.positions.length;at+=3)if((mesh.restPositions[at]||mesh.positions[at])*sign>=0)indices.push(at);
-      if(!indices.length||targetValues.length<9)continue;const sourceValues=[];for(const at of indices)sourceValues.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);const source=positionBounds(sourceValues),target=positionBounds(targetValues),sourceSize=boundsSize(source),targetSize=boundsSize(target),scales=targetSize.map((value,axis)=>clamp((value+(axis===0?.10:.025))/sourceSize[axis],.78,1.34)),targetCenter=[target.center[0]-sign*.05,target.center[1],target.center[2]];
+      if(!indices.length||targetValues.length<9)continue;const sourceValues=[];for(const at of indices)sourceValues.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);const source=positionBounds(sourceValues),target=positionBounds(targetValues),sourceSize=boundsSize(source),targetSize=boundsSize(target),scales=targetSize.map((value,axis)=>clamp((value+(axis===0?.20:.16))/sourceSize[axis],.82,1.70)),targetCenter=[target.center[0]-sign*.08,target.center[1],target.center[2]];
       for(const at of indices)for(let axis=0;axis<3;axis++){const value=targetCenter[axis]+(mesh.positions[at+axis]-source.center[axis])*scales[axis];largest=Math.max(largest,Math.abs(value-mesh.positions[at+axis]));mesh.positions[at+axis]=value;}
     }
     return largest;
+  }
+  function fitLowerLegLayer(mesh){
+    if(!['Bottoms','Underlayers','Shoes'].includes(mesh.catalog?.category))return 0;const name=`${mesh.id} ${mesh.catalog?.name||''}`;if(mesh.catalog.category==='Underlayers'&&!/sock|stocking|pantyhose|leg.warmer/i.test(name))return 0;let largest=0;
+    if(mesh.catalog.category==='Bottoms'&&Math.max(Math.abs(pose.leftHip||0),Math.abs(pose.rightHip||0),Math.abs(pose.leftKnee||0),Math.abs(pose.rightKnee||0))>5)return 0;
+    for(const side of ['left','right']){const calf=partById[side+'_calf'];if(!calf)continue;const target=positionBounds(calf.positions),sign=side==='left'?-1:1,indices=[];for(let at=0;at<mesh.positions.length;at+=3)if((mesh.restPositions[at]||mesh.positions[at])*sign>=0&&mesh.positions[at+1]>target.min[1]-.18&&mesh.positions[at+1]<target.max[1]+.18)indices.push(at);if(indices.length<9)continue;const values=[];for(const at of indices)values.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);const source=positionBounds(values),sourceSize=boundsSize(source),targetSize=boundsSize(target),scaleX=clamp((targetSize[0]+.07)/sourceSize[0],1,1.34),scaleZ=clamp((targetSize[2]+.07)/sourceSize[2],1,1.34);
+      for(const at of indices){const x=target.center[0]+(mesh.positions[at]-source.center[0])*scaleX,z=target.center[2]+(mesh.positions[at+2]-source.center[2])*scaleZ;largest=Math.max(largest,Math.abs(x-mesh.positions[at]),Math.abs(z-mesh.positions[at+2]));mesh.positions[at]=x;mesh.positions[at+2]=z;}}
+    return largest;
+  }
+  function fitBottomsOutsideLegSurface(mesh){
+    if(mesh.catalog?.category!=='Bottoms')return 0;
+    // The cross-section solver below is intentionally a neutral-stance body
+    // form adjustment. Once a hip or knee rotates, horizontal world-Y slices
+    // no longer describe a leg and would pull a valid trouser tube sideways.
+    if(Math.max(Math.abs(pose.leftHip||0),Math.abs(pose.rightHip||0),Math.abs(pose.leftKnee||0),Math.abs(pose.rightKnee||0))>5)return 0;
+    const binCount=32,clearance=.052;let largest=0,adjusted=0;
+    for(const side of ['left','right']){
+      const thigh=partById[`${side}_thigh`],calf=partById[`${side}_calf`];if(!thigh||!calf)continue;
+      const sign=side==='left'?-1:1,body=[...thigh.positions,...calf.positions],pelvis=partById.pelvis?.positions;if(pelvis)for(let at=0;at<pelvis.length;at+=3)if(Math.abs(pelvis[at])<.035||(pelvis[at]<0?-1:1)===sign)body.push(pelvis[at],pelvis[at+1],pelvis[at+2]);const bodyBounds=positionBounds(body),yMin=bodyBounds.min[1],yMax=Math.min(.68,bodyBounds.max[1]),span=Math.max(.001,yMax-yMin),buckets=Array.from({length:binCount},()=>[]);
+      for(let at=0;at<body.length;at+=3){const y=body[at+1];if(y<yMin||y>yMax)continue;if(Math.abs(body[at])>=.035&&(body[at]<0?-1:1)!==sign)continue;const bin=Math.max(0,Math.min(binCount-1,Math.round((y-yMin)/span*(binCount-1))));buckets[bin].push(body[at],body[at+2]);}
+      const profiles=buckets.map((values,index)=>{if(values.length<8){values=[];for(let radius=1;radius<5&&values.length<8;radius++)for(const neighbour of [index-radius,index+radius])if(neighbour>=0&&neighbour<binCount)values.push(...buckets[neighbour]);}if(values.length<4)return null;const xs=[],zs=[];for(let at=0;at<values.length;at+=2){xs.push(values[at]);zs.push(values[at+1]);}const minX=Math.min(...xs),maxX=Math.max(...xs),minZ=Math.min(...zs),maxZ=Math.max(...zs);return {cx:(minX+maxX)*.5,cz:(minZ+maxZ)*.5,rx:Math.max(.025,(maxX-minX)*.5),rz:Math.max(.025,(maxZ-minZ)*.5)};});
+      const nearestProfile=index=>{for(let radius=0;radius<binCount;radius++)for(const candidate of [index-radius,index+radius])if(candidate>=0&&candidate<binCount&&profiles[candidate])return profiles[candidate];return null;};
+      for(let at=0;at<mesh.positions.length;at+=3){if((mesh.restPositions[at]<0?-1:1)!==sign)continue;const y=mesh.positions[at+1];if(y<yMin-.04||y>yMax+.04)continue;const position=clamp((y-yMin)/span*(binCount-1),0,binCount-1),low=Math.floor(position),high=Math.ceil(position),a=nearestProfile(low),b=nearestProfile(high);if(!a||!b)continue;const t=position-low,profile={cx:a.cx+(b.cx-a.cx)*t,cz:a.cz+(b.cz-a.cz)*t,rx:a.rx+(b.rx-a.rx)*t,rz:a.rz+(b.rz-a.rz)*t},dx=mesh.positions[at]-profile.cx,dz=mesh.positions[at+2]-profile.cz,radius=Math.hypot(dx/profile.rx,dz/profile.rz),required=1+clearance/Math.max(.035,Math.min(profile.rx,profile.rz));if(radius>=required)continue;let ux=dx,uz=dz;if(Math.hypot(ux,uz)<1e-6){ux=mesh.restPositions[at]-profile.cx;uz=mesh.restPositions[at+2]-profile.cz;}const normalized=Math.max(1e-6,Math.hypot(ux/profile.rx,uz/profile.rz)),factor=Math.min(1.45,required/normalized),x=profile.cx+ux*factor,z=profile.cz+uz*factor;largest=Math.max(largest,Math.abs(x-mesh.positions[at]),Math.abs(z-mesh.positions[at+2]));mesh.positions[at]=x;mesh.positions[at+2]=z;adjusted++;}
+    }
+    if(mesh.fitStats)mesh.fitStats.legShellAdjusted=adjusted;return largest;
+  }
+  function poseBottomsPoint(point){
+    const side=point[0]<0?'left':'right',sign=point[0]<0?-1:1,hip=[sign*.42,-.30,0],knee=[sign*.42,-1.54,.06],hipWeight=step01(.16,-.52,point[1])*step01(.02,.28,Math.abs(point[0])),kneeWeight=step01(-1.28,-1.86,point[1]);
+    const kneeBent=spinX(point,knee,(pose[side+'Knee']||0)*RAD),legLocal=blendPoint(point,kneeBent,kneeWeight),hipMoved=spinZ(legLocal,hip,sign*(pose[side+'Hip']||0)*RAD);
+    return blendPoint(point,hipMoved,hipWeight);
   }
   function bodyPrimitiveBounds(kind){const values=[];for(let vertex=0;vertex<(importedRig?.vertexCount||0);vertex++)if(importedRig.primitiveKind?.(vertex)===kind)values.push(...importedRig.worldPoint(vertex));return values.length?positionBounds(values):null;}
   function transformAppearancePoint(id, point) {
@@ -601,8 +739,8 @@
       const chest=safe(bodySettings.chestCm,base.chest),waist=safe(bodySettings.waistCm,base.waist),shoulders=safe(bodySettings.shoulderCm,base.shoulders,.62),chestW=step01(.72,1.12,y)*(1-step01(2.10,2.42,y)),waistW=step01(.10,.42,y)*(1-step01(.92,1.30,y)),shoulderW=step01(1.36,1.72,y)*(1-step01(2.35,2.66,y));
       p[0]*=1+(chest-1)*chestW+(waist-1)*waistW;p[2]*=1+(chest-1)*chestW*.84+(waist-1)*waistW*.82;p[0]+=side*(shoulders-1)*.56*shoulderW;
       if(female){
-        const rawValue=Number(bodySettings.breastSize),value=Math.max(0,Math.min(200,Number.isFinite(rawValue)?rawValue:50)),amount=value<50?clamp((value-50)/50,-1,0):clamp((value-50)/150,0,1),dx=x-side*.285,dy=y-1.72,dz=z-.13,front=step01(.015,.22,z),breast=Math.exp(-Math.pow(dx/.38,2)-Math.pow(dy/.47,2)-Math.pow(Math.max(0,dz-.34)/.38,2))*front,radial=amount*breast;
-        p[0]+=dx*.95*radial;p[1]+=dy*.95*radial;p[2]+=dz*.95*radial+amount*.20*breast;
+        const rawValue=Number(bodySettings.breastSize),value=Math.max(0,Math.min(400,Number.isFinite(rawValue)?rawValue:50)),amount=value<50?clamp((value-50)/50,-1,0):clamp((value-50)/250,0,1.4),large=Math.max(0,amount),dx=x-side*.285,dy=y-1.76,dz=z-.19,front=step01(.015,.20,z),chestGate=step01(1.30,1.48,y)*(1-step01(2.13,2.31,y)),width=.34+.050*large,height=.38+.070*large,depth=.36+.060*large,breast=Math.exp(-Math.pow(dx/width,2)-Math.pow(dy/height,2)-Math.pow(dz/depth,2))*front*chestGate,radial=amount*breast*(.52+.18*large);
+        p[0]+=dx*.42*radial;p[1]+=dy*.58*radial-large*large*.035*breast;p[2]+=dz*.45*radial+amount*(.16+.12*large)*breast;
       }
       const sleeve=step01(.54,.94,ax)*step01(.55,1.10,y),shoulder=[side*.86,2.29,0],sideName=side<0?'left':'right';
       let posed=spinX(p,shoulder,-(pose[sideName+'ShoulderForward']||0)*RAD*.72);posed=spinZ(posed,shoulder,side*(pose[sideName+'Shoulder']||0)*RAD*.48);
@@ -611,11 +749,24 @@
     }
     const heightScale=clamp((Number(bodySettings.heightCm)||178)/178,.78,1.22);p[1]=(p[1]+3.41)*heightScale-3.41;return p;
   }
+  function makeHumanProxyCompatibility(mesh){
+    if(mesh.proxyCompatibilityRig===importedRig&&mesh.proxyCompatibility)return mesh.proxyCompatibility;
+    const map=baseVertexMap();if(!importedRig?.neutralPoint||!map||!mesh.bindIndices||!mesh.bindWeights||!mesh.bindOffsets)return {ok:false,median:Infinity,p95:Infinity,max:Infinity,invalid:mesh.restPositions.length/3};
+    const pointAt=baseVertex=>{const mapped=map[baseVertex];return mapped===undefined?null:importedRig.neutralPoint(mapped);},scales=meshProxyScales(mesh,map,index=>importedRig.neutralPoint(index)),errors=[];let invalid=0;
+    for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){const at=vertex*3,weights=meshBindingWeights(mesh,at),anchor=[0,0,0];let valid=true;for(let corner=0;corner<3;corner++){const point=pointAt(mesh.bindIndices[at+corner]);if(!point){valid=false;break;}for(let axis=0;axis<3;axis++)anchor[axis]+=point[axis]*weights[corner];}if(!valid){invalid++;continue;}const dx=anchor[0]+mesh.bindOffsets[at]*scales[0]-mesh.restPositions[at],dy=anchor[1]+mesh.bindOffsets[at+1]*scales[1]-mesh.restPositions[at+1],dz=anchor[2]+mesh.bindOffsets[at+2]*scales[2]-mesh.restPositions[at+2];errors.push(Math.hypot(dx,dy,dz));}
+    const result={ok:!invalid&&median(errors)<.19&&percentile(errors,.95)<.26&&(errors.length?Math.max(...errors):Infinity)<.30,median:median([...errors]),p95:percentile([...errors],.95),max:errors.length?Math.max(...errors):Infinity,invalid};mesh.proxyCompatibilityRig=importedRig;mesh.proxyCompatibility=result;return result;
+  }
   function updateMakeHumanBoundAsset(mesh){
-    // Footwear contains thick soles and disconnected decorative panels; a
-    // per-vertex proxy refit can shear those pieces apart. Keep its authored
-    // topology and transfer the body's deformation field instead.
-    if(['Shoes','Gloves'].includes(mesh.catalog?.category)||rigidHeadCategories.has(mesh.catalog?.category))return false;
+    // Use the asset's authored MakeHuman proxy equation whenever it exists.
+    // This preserves shoe soles, boot shafts and glove finger topology; the
+    // former nearest-surface/AABB fallback distorted those disconnected forms.
+    // Trouser proxies from several community packs target a different hm08
+    // vertex ordering than the bundled body.  Replaying those numeric vertex
+    // ids maps front shin panels onto the side or back of the leg.  Bottoms
+    // therefore use the geometry-based surface binding below, which resolves
+    // the authored proxy guides against the actual neutral body surface.
+    if(rigidHeadCategories.has(mesh.catalog?.category))return false;
+    const compatibility=mesh.catalog?.category==='Bottoms'?makeHumanProxyCompatibility(mesh):null;if(compatibility&&!compatibility.ok)return false;
     const map=baseVertexMap();if(!importedRig?.worldPoint||!map||!mesh.bindIndices||!mesh.bindWeights||!mesh.bindOffsets)return false;
     const pointAt=baseVertex=>{const mapped=map[baseVertex];return mapped===undefined?null:importedRig.worldPoint(mapped);},scales=meshProxyScales(mesh,map,index=>importedRig.worldPoint(index));
     let invalid=0,maxMotion=0,maxOffset=0;
@@ -625,13 +776,24 @@
       if(!valid){invalid++;continue;}
       for(let axis=0;axis<3;axis++){const offset=mesh.bindOffsets[at+axis]*scales[axis],value=anchor[axis]+offset;mesh.positions[at+axis]=value;maxOffset=Math.max(maxOffset,Math.abs(offset));maxMotion=Math.max(maxMotion,Math.abs(value-mesh.restPositions[at+axis]));if(!Number.isFinite(value))invalid++;}
     }
-    mesh.fitStats={bound:true,deformationMode:'MakeHuman proxy binding',maxMotion,maxOffset,maxClearanceCorrection:0,invalidVertices:invalid,sourceError:null};return true;
+    mesh.fitStats={bound:true,deformationMode:'MakeHuman proxy binding',maxMotion,maxOffset,maxClearanceCorrection:0,invalidVertices:invalid,sourceError:null,proxyCompatibility:compatibility};return true;
   }
   function regularizeProxyDeformation(mesh,passes=2,strength=.45){
     const neutral=mesh.restPositions;if(!mesh.vertexNeighbours){const neighbours=Array.from({length:mesh.positions.length/3},()=>new Set());for(let at=0;at<mesh.indices.length;at+=3){const a=mesh.indices[at],b=mesh.indices[at+1],c=mesh.indices[at+2];neighbours[a].add(b).add(c);neighbours[b].add(a).add(c);neighbours[c].add(a).add(b);}mesh.vertexNeighbours=neighbours.map(set=>[...set]);}
     let field=new Float32Array(mesh.positions.length);for(let at=0;at<field.length;at++)field[at]=mesh.positions[at]-neutral[at];
     for(let pass=0;pass<passes;pass++){const next=field.slice();for(let vertex=0;vertex<mesh.vertexNeighbours.length;vertex++){const neighbours=mesh.vertexNeighbours[vertex];if(neighbours.length<2)continue;const at=vertex*3;for(let axis=0;axis<3;axis++){let average=0;for(const other of neighbours)average+=field[other*3+axis];average/=neighbours.length;next[at+axis]=field[at+axis]+(average-field[at+axis])*strength;}}field=next;}
     let largest=0;for(let at=0;at<mesh.positions.length;at++){const value=neutral[at]+field[at];largest=Math.max(largest,Math.abs(value-mesh.positions[at]));mesh.positions[at]=value;}return largest;
+  }
+  function weldCoincidentAssetSeams(mesh){
+    // OBJ/glTF conversion duplicates a geometric vertex at every UV or
+    // material boundary. MakeHuman proxy weights can then deform those copies
+    // differently, opening the waist, inseam, sleeves and boot shafts even
+    // though they occupied exactly the same source position. Keep the visual
+    // split for texturing, but force each coincident group back to one deformed
+    // position after all fitting operations.
+    if(!mesh.seamGroups){const groups=new Map();for(let at=0;at<mesh.restPositions.length;at+=3){const key=`${Math.round(mesh.restPositions[at]*1e5)},${Math.round(mesh.restPositions[at+1]*1e5)},${Math.round(mesh.restPositions[at+2]*1e5)}`;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(at);}mesh.seamGroups=[...groups.values()].filter(group=>group.length>1);}
+    let largest=0;for(const group of mesh.seamGroups){const mean=[0,0,0];for(const at of group)for(let axis=0;axis<3;axis++)mean[axis]+=mesh.positions[at+axis]/group.length;for(const at of group)for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(mean[axis]-mesh.positions[at+axis]));mesh.positions[at+axis]=mean[axis];}}
+    if(mesh.fitStats){mesh.fitStats.weldedSeams=mesh.seamGroups.length;mesh.fitStats.maxSeamCorrection=largest;}return largest;
   }
   function meshTopologyComponents(mesh){
     if(mesh.topologyComponents)return mesh.topologyComponents;const neighbours=Array.from({length:mesh.positions.length/3},()=>[]);for(let at=0;at<mesh.indices.length;at+=3){const ids=[mesh.indices[at],mesh.indices[at+1],mesh.indices[at+2]];for(let i=0;i<3;i++)for(let j=i+1;j<3;j++){neighbours[ids[i]].push(ids[j]);neighbours[ids[j]].push(ids[i]);}}const seen=new Uint8Array(neighbours.length),components=[];for(let start=0;start<neighbours.length;start++){if(seen[start])continue;const stack=[start],component=[];seen[start]=1;while(stack.length){const vertex=stack.pop();component.push(vertex);for(const other of neighbours[vertex])if(!seen[other]){seen[other]=1;stack.push(other);}}if(component.length>=3)components.push(component);}return mesh.topologyComponents=components;
@@ -642,6 +804,86 @@
     const primary=normal(sub(pointAt(basis[1]),pointAt(basis[0]))),thirdDelta=sub(pointAt(basis[2]),origin),secondary=normal(sub(thirdDelta,scale(primary,dot(thirdDelta,primary)))),tertiary=normal(cross(primary,secondary)),axes=[primary,secondary,tertiary],min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity];
     for(const vertex of vertices){const delta=sub(pointAt(vertex),origin);for(let axis=0;axis<3;axis++){const value=dot(delta,axes[axis]);min[axis]=Math.min(min[axis],value);max[axis]=Math.max(max[axis],value);}}
     return {origin,axes,extent:max.map((value,axis)=>Math.max(1e-6,value-min[axis])),basis};
+  }
+  function anatomicalPartFrame(id){
+    const part=partById[id];if(!part?.restPositions||!part.positions)return null;const vertices=Array.from({length:part.restPositions.length/3},(_,index)=>index),neutral=detailComponentFrame(vertices,index=>{const at=index*3;return [part.restPositions[at],part.restPositions[at+1],part.restPositions[at+2]];}),current=detailComponentFrame(vertices,index=>{const at=index*3;return [part.positions[at],part.positions[at+1],part.positions[at+2]];},neutral.basis);return {neutral,current,scale:current.extent.map((value,axis)=>clamp(value/neutral.extent[axis],.72,1.38))};
+  }
+  function pointThroughAnatomicalFrame(point,frame){
+    if(!frame)return point.slice();const local=frame.neutral.axes.map(axis=>dot(sub(point,frame.neutral.origin),axis)),result=frame.current.origin.slice();for(let localAxis=0;localAxis<3;localAxis++)for(let axis=0;axis<3;axis++)result[axis]+=frame.current.axes[localAxis][axis]*local[localAxis]*frame.scale[localAxis];return result;
+  }
+  function pointThroughRigidAnatomicalFrame(point,frame){
+    if(!frame)return point.slice();const uniform=clamp(median(frame.scale.slice()),.78,1.24),local=frame.neutral.axes.map(axis=>dot(sub(point,frame.neutral.origin),axis)),result=frame.current.origin.slice();for(let localAxis=0;localAxis<3;localAxis++)for(let axis=0;axis<3;axis++)result[axis]+=frame.current.axes[localAxis][axis]*local[localAxis]*uniform;return result;
+  }
+  function fitRigidBodyAccessory(mesh,partId,rigid=false){
+    const frame=anatomicalPartFrame(partId);if(!frame)return 0;let largest=0;for(let at=0;at<mesh.restPositions.length;at+=3){const source=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],point=rigid?pointThroughRigidAnatomicalFrame(source,frame):pointThroughAnatomicalFrame(source,frame);for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(point[axis]-mesh.restPositions[at+axis]));mesh.positions[at+axis]=point[axis];}}return largest;
+  }
+  function fitPairedRigidAccessory(mesh,partName){
+    const frames={left:anatomicalPartFrame(`left_${partName}`),right:anatomicalPartFrame(`right_${partName}`)};let largest=0;for(let at=0;at<mesh.restPositions.length;at+=3){const side=mesh.restPositions[at]<0?'left':'right',point=pointThroughRigidAnatomicalFrame([mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],frames[side]);for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(point[axis]-mesh.restPositions[at+axis]));mesh.positions[at+axis]=point[axis];}}return largest;
+  }
+  function fitContinuousLimbLayer(mesh,kind){
+    const lower=kind==='lower',frames={};for(const side of ['left','right'])frames[side]=lower?{distal:anatomicalPartFrame(`${side}_foot`),middle:anatomicalPartFrame(`${side}_calf`),proximal:anatomicalPartFrame(`${side}_thigh`)}:{distal:anatomicalPartFrame(`${side}_hand`),middle:anatomicalPartFrame(`${side}_forearm`),proximal:anatomicalPartFrame(`${side}_upper_arm`)};
+    let largest=0;for(let at=0;at<mesh.restPositions.length;at+=3){const rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],side=rest[0]<0?'left':'right',frame=frames[side];if(!frame.distal||!frame.middle||!frame.proximal)continue;const distal=pointThroughAnatomicalFrame(rest,frame.distal),middle=pointThroughAnatomicalFrame(rest,frame.middle),proximal=pointThroughAnatomicalFrame(rest,frame.proximal);let point;if(lower){const footWeight=step01(-2.94,-3.14,rest[1]),thighWeight=step01(-1.68,-1.40,rest[1]);point=blendPoint(blendPoint(middle,distal,footWeight),proximal,thighWeight);}else{const distance=Math.abs(rest[0]),handWeight=step01(1.43,1.66,distance),upperWeight=step01(1.12,.88,distance);point=blendPoint(blendPoint(middle,distal,handWeight),proximal,upperWeight);}for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(point[axis]-mesh.positions[at+axis]));mesh.positions[at+axis]=point[axis];}}
+    return largest;
+  }
+  function expandPairedRigidAccessory(mesh,partName,amount){
+    let largest=0;for(const side of ['left','right']){const sign=side==='left'?-1:1,frame=anatomicalPartFrame(`${side}_${partName}`);if(!frame)continue;const selected=[];for(let at=0;at<mesh.positions.length;at+=3)if((mesh.restPositions[at]<0?-1:1)===sign)selected.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);if(!selected.length)continue;const center=positionBounds(selected).center,axis=frame.current.axes[0];for(let at=0;at<mesh.positions.length;at+=3){if((mesh.restPositions[at]<0?-1:1)!==sign)continue;const delta=sub([mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]],center),longitudinal=scale(axis,dot(delta,axis)),radial=sub(delta,longitudinal),next=add(add(center,longitudinal),scale(radial,1+amount));for(let world=0;world<3;world++){largest=Math.max(largest,Math.abs(next[world]-mesh.positions[at+world]));mesh.positions[at+world]=next[world];}}}return largest;
+  }
+  function shiftRigidAccessory(mesh,delta){let largest=0;for(let at=0;at<mesh.positions.length;at+=3)for(let axis=0;axis<3;axis++){mesh.positions[at+axis]+=delta[axis];largest=Math.max(largest,Math.abs(delta[axis]));}return largest;}
+  function fitStandaloneWatch(mesh){
+    const side=/right$/i.test(mesh.catalog?.placement||'')?'right':'left',forearm=partById[`${side}_forearm`],hand=partById[`${side}_hand`];if(!forearm||!hand)return 0;
+    const points=values=>{const result=[];for(let at=0;at<values.length;at+=3)result.push([values[at],values[at+1],values[at+2]]);return result;},average=values=>values.reduce((sum,point)=>sum.map((value,index)=>value+point[index]/values.length),[0,0,0]),forearmPoints=points(forearm.positions),handPoints=points(hand.positions),forearmCenter=positionBounds(forearm.positions).center,handCenter=positionBounds(hand.positions).center,nearest=(values,target)=>values.map(point=>({point,distance:Math.hypot(...sub(point,target))})).sort((a,b)=>a.distance-b.distance).slice(0,Math.max(8,Math.floor(values.length*.035))).map(item=>item.point),forearmWrist=average(nearest(forearmPoints,handCenter)),handWrist=average(nearest(handPoints,forearmCenter)),axis=normal(sub(handWrist,forearmWrist)),center=blendPoint(forearmWrist,handWrist,.46);
+    // Place the watch face on the anatomical front of the wrist. Projecting
+    // the body-forward vector onto the wrist plane stays stable under arm
+    // elevation and twist, unlike the previous PCA axis whose sign changed
+    // with hand topology and put the watch halfway up the forearm.
+    let outward=sub([0,0,1],scale(axis,dot([0,0,1],axis)));if(Math.hypot(...outward)<.1)outward=sub([0,1,0],scale(axis,dot([0,1,0],axis)));outward=normal(outward);const tangent=normal(cross(axis,outward)),band=forearmPoints.filter(point=>Math.abs(dot(sub(point,center),axis))<.085),radii=band.map(point=>{const delta=sub(point,center);return Math.hypot(...sub(delta,scale(axis,dot(delta,axis))));}),radius=clamp(percentile(radii,.72)+.003,.055,.095),faceValues=[],strapValues=[];for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){const at=vertex*3,target=mesh.watchParts?.[vertex]===0?faceValues:strapValues;target.push(mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]);}const faceBounds=positionBounds(faceValues),strapBounds=positionBounds(strapValues),faceScale=2.75,strapScale=2.45;let largest=0;
+    for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){const at=vertex*3,sx=mesh.restPositions[at],sy=mesh.restPositions[at+1],sz=mesh.restPositions[at+2],face=mesh.watchParts?.[vertex]===0,point=center.slice();if(face){const components=[[axis,(sx-faceBounds.center[0])*faceScale],[tangent,(sz-faceBounds.center[2])*faceScale],[outward,radius+.006+(sy-faceBounds.min[1])*faceScale]];for(const [vector,amount] of components)for(let world=0;world<3;world++)point[world]+=vector[world]*amount;}else{const angle=(sz-strapBounds.center[2])*strapScale/radius,radial=add(scale(outward,Math.cos(angle)),scale(tangent,Math.sin(angle))),along=scale(axis,(sx-strapBounds.center[0])*faceScale),distance=radius+(sy-strapBounds.center[1])*strapScale;for(let world=0;world<3;world++)point[world]+=along[world]+radial[world]*distance;}for(let world=0;world<3;world++){largest=Math.max(largest,Math.abs(point[world]-mesh.positions[at+world]));mesh.positions[at+world]=point[world];}}
+    return largest;
+  }
+  function wristLandmark(side){
+    const forearm=partById[`${side}_forearm`],hand=partById[`${side}_hand`];if(!forearm||!hand)return null;const points=values=>{const result=[];for(let at=0;at<values.length;at+=3)result.push([values[at],values[at+1],values[at+2]]);return result;},average=values=>values.reduce((sum,point)=>sum.map((value,index)=>value+point[index]/values.length),[0,0,0]),forearmPoints=points(forearm.positions),handPoints=points(hand.positions),forearmCenter=positionBounds(forearm.positions).center,handCenter=positionBounds(hand.positions).center,nearest=(values,target)=>values.map(point=>({point,distance:Math.hypot(...sub(point,target))})).sort((a,b)=>a.distance-b.distance).slice(0,Math.max(8,Math.floor(values.length*.035))).map(item=>item.point),forearmWrist=average(nearest(forearmPoints,handCenter)),handWrist=average(nearest(handPoints,forearmCenter));return {center:blendPoint(forearmWrist,handWrist,.46),axis:normal(sub(handWrist,forearmWrist))};
+  }
+  function fitRigidWristAccessory(mesh){
+    const source=positionBounds(mesh.restPositions),side=source.center[0]<0?'left':'right',frame=anatomicalPartFrame(`${side}_forearm`),landmark=wristLandmark(side);if(!frame||!landmark)return 0;let largest=0;for(let at=0;at<mesh.restPositions.length;at+=3){const rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],point=pointThroughRigidAnatomicalFrame(rest,frame);for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(point[axis]-mesh.positions[at+axis]));mesh.positions[at+axis]=point[axis];}}const fitted=positionBounds(mesh.positions),delta=sub(landmark.center,fitted.center);for(let at=0;at<mesh.positions.length;at+=3)for(let axis=0;axis<3;axis++){mesh.positions[at+axis]+=delta[axis];largest=Math.max(largest,Math.abs(delta[axis]));}return largest;
+  }
+  function enforceLimbSurfaceEnvelope(mesh,partIds,clearance=.012){
+    let largest=0,adjusted=0;
+    for(const partId of partIds){
+      const part=partById[partId],frame=anatomicalPartFrame(partId);if(!part?.positions||!frame)continue;const localBody=[],axes=frame.current.axes,origin=frame.current.origin;
+      for(let at=0;at<part.positions.length;at+=3){const delta=sub([part.positions[at],part.positions[at+1],part.positions[at+2]],origin);localBody.push(axes.map(direction=>dot(delta,direction)));}
+      const longitudinal=localBody.map(point=>point[0]),minLong=Math.min(...longitudinal),maxLong=Math.max(...longitudinal),span=Math.max(.001,maxLong-minLong),binCount=18,bins=Array.from({length:binCount},()=>[]);
+      for(const point of localBody){const bin=clamp(Math.round((point[0]-minLong)/span*(binCount-1)),0,binCount-1);bins[bin].push(point[1],point[2]);}
+      const profiles=bins.map((values,index)=>{if(values.length<8){values=[];for(let radius=1;radius<4&&values.length<8;radius++)for(const neighbour of [index-radius,index+radius])if(neighbour>=0&&neighbour<binCount)values.push(...bins[neighbour]);}if(values.length<4)return null;const a=[],b=[];for(let at=0;at<values.length;at+=2){a.push(values[at]);b.push(values[at+1]);}const minA=Math.min(...a),maxA=Math.max(...a),minB=Math.min(...b),maxB=Math.max(...b);return {ca:(minA+maxA)*.5,cb:(minB+maxB)*.5,ra:Math.max(.018,(maxA-minA)*.5),rb:Math.max(.018,(maxB-minB)*.5)};});
+      const nearest=index=>{for(let radius=0;radius<binCount;radius++)for(const candidate of [index-radius,index+radius])if(candidate>=0&&candidate<binCount&&profiles[candidate])return profiles[candidate];return null;};
+      for(let at=0;at<mesh.positions.length;at+=3){const side=partId.startsWith('left_')?-1:partId.startsWith('right_')?1:0;if(side&&(mesh.restPositions[at]<0?-1:1)!==side)continue;const position=[mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]],delta=sub(position,origin),local=axes.map(direction=>dot(delta,direction));if(local[0]<minLong-.035||local[0]>maxLong+.035)continue;const binPosition=clamp((local[0]-minLong)/span*(binCount-1),0,binCount-1),low=Math.floor(binPosition),high=Math.ceil(binPosition),a=nearest(low),b=nearest(high);if(!a||!b)continue;const t=binPosition-low,profile={ca:a.ca+(b.ca-a.ca)*t,cb:a.cb+(b.cb-a.cb)*t,ra:a.ra+(b.ra-a.ra)*t,rb:a.rb+(b.rb-a.rb)*t},da=local[1]-profile.ca,db=local[2]-profile.cb,radius=Math.hypot(da/profile.ra,db/profile.rb),required=1+clearance/Math.max(.018,Math.min(profile.ra,profile.rb));if(radius>=required||radius<.05)continue;const factor=Math.min(1.65,required/radius),nextLocal=[local[0],profile.ca+da*factor,profile.cb+db*factor],next=origin.slice();for(let frameAxis=0;frameAxis<3;frameAxis++)for(let worldAxis=0;worldAxis<3;worldAxis++)next[worldAxis]+=axes[frameAxis][worldAxis]*nextLocal[frameAxis];for(let worldAxis=0;worldAxis<3;worldAxis++){largest=Math.max(largest,Math.abs(next[worldAxis]-mesh.positions[at+worldAxis]));mesh.positions[at+worldAxis]=next[worldAxis];}adjusted++;}
+    }
+    if(mesh.fitStats)mesh.fitStats.limbEnvelopeAdjusted=(mesh.fitStats.limbEnvelopeAdjusted||0)+adjusted;return largest;
+  }
+  function fitCloseFittingLimbEnvelope(mesh){
+    const item=mesh.catalog,name=`${item?.id||''} ${item?.name||''}`;let partIds=[],clearance=.012;
+    if(item?.category==='Bottoms'){partIds=['left_thigh','right_thigh','left_calf','right_calf'];clearance=.026;}
+    else if(item?.category==='Shoes'&&/boot|over.?knee|wellington|riding|high/i.test(name)){partIds=['left_calf','right_calf','left_thigh','right_thigh'];clearance=.018;}
+    else if(item?.category==='Underlayers'&&/sock|stocking|pantyhose|leg.warmer/i.test(name)){partIds=['left_thigh','right_thigh','left_calf','right_calf'];clearance=.010;}
+    else if(item?.category==='Underlayers'&&/armsleeve/i.test(name)){partIds=['left_upper_arm','right_upper_arm','left_forearm','right_forearm'];clearance=.009;}
+    else if(['Tops','Dresses'].includes(item?.category)&&!/sleeveless|strap|halter|bandeau|apron|tank/i.test(name)){partIds=['left_upper_arm','right_upper_arm','left_forearm','right_forearm'];clearance=.016;}
+    else if(item?.category==='Gloves'){partIds=['left_forearm','right_forearm'];clearance=.014;}
+    return partIds.length?enforceLimbSurfaceEnvelope(mesh,partIds,clearance):0;
+  }
+  function alignShortGloveToHand(mesh){
+    const referenced=new Uint8Array(mesh.positions.length/3);for(const vertex of mesh.indices)referenced[vertex]=1;let largest=0;
+    for(const side of ['left','right']){const hand=partById[`${side}_hand`];if(!hand)continue;const sign=side==='left'?-1:1,values=[];for(let vertex=0;vertex<referenced.length;vertex++){const at=vertex*3;if(referenced[vertex]&&(mesh.restPositions[at]<0?-1:1)===sign)values.push(mesh.positions[at],mesh.positions[at+1],mesh.positions[at+2]);}if(values.length<9)continue;const source=positionBounds(values),target=positionBounds(hand.positions),translation=target.center.map((value,axis)=>clamp(value-source.center[axis],-.24,.24));for(let at=0;at<mesh.positions.length;at+=3){if((mesh.restPositions[at]<0?-1:1)!==sign)continue;for(let axis=0;axis<3;axis++)mesh.positions[at+axis]+=translation[axis];}largest=Math.max(largest,...translation.map(Math.abs));}
+    return largest;
+  }
+  function shiftGlovesDistally(mesh,distance=.055){
+    let largest=0;for(const side of ['left','right']){const hand=partById[`${side}_hand`],forearm=partById[`${side}_forearm`];if(!hand||!forearm)continue;const handCenter=positionBounds(hand.positions).center,forearmCenter=positionBounds(forearm.positions).center,direction=sub(handCenter,forearmCenter),length=Math.hypot(...direction)||1,delta=direction.map(value=>value/length*distance),sign=side==='left'?-1:1;for(let at=0;at<mesh.positions.length;at+=3){if((mesh.restPositions[at]<0?-1:1)!==sign)continue;for(let axis=0;axis<3;axis++)mesh.positions[at+axis]+=delta[axis];}largest=Math.max(largest,...delta.map(Math.abs));}return largest;
+  }
+  function fitAuthoredExtremity(mesh){
+    const shoes=mesh.catalog?.category==='Shoes',shortGlove=!shoes&&/mma|fingerless|open/i.test(`${mesh.id} ${mesh.catalog?.name||''}`),frames={};for(const side of ['left','right']){frames[side]={distal:anatomicalPartFrame(`${side}_${shoes?'foot':'hand'}`),proximal:anatomicalPartFrame(`${side}_${shoes?'calf':'forearm'}`)};}
+    const gloveFits={};
+    if(!shoes&&!shortGlove){const referenced=new Uint8Array(mesh.restPositions.length/3);for(const index of mesh.indices)referenced[index]=1;for(const side of ['left','right']){const sign=side==='left'?-1:1,sourceValues=[],targetValues=[],hand=partById[`${side}_hand`],forearm=partById[`${side}_forearm`];for(let vertex=0;vertex<referenced.length;vertex++){const at=vertex*3;if(referenced[vertex]&&(mesh.restPositions[at]<0?-1:1)===sign)sourceValues.push(mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]);}if(hand)targetValues.push(...hand.restPositions);if(forearm){const absolute=[];for(let at=0;at<forearm.restPositions.length;at+=3)absolute.push(Math.abs(forearm.restPositions[at]));const threshold=percentile(absolute,.72);for(let at=0;at<forearm.restPositions.length;at+=3)if(Math.abs(forearm.restPositions[at])>=threshold)targetValues.push(forearm.restPositions[at],forearm.restPositions[at+1],forearm.restPositions[at+2]);}if(sourceValues.length&&targetValues.length){const source=positionBounds(sourceValues),target=positionBounds(targetValues),sourceSize=boundsSize(source),targetSize=boundsSize(target),scaleByAxis=targetSize.map((value,axis)=>clamp((value+(axis===0?.025:.018))/sourceSize[axis],.25,1.35));gloveFits[side]={source,target,scaleByAxis};}}}
+    let largest=0;
+    for(let at=0;at<mesh.restPositions.length;at+=3){const rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],side=rest[0]<0?'left':'right',fit=gloveFits[side],point=fit?fit.target.center.map((value,axis)=>value+(rest[axis]-fit.source.center[axis])*fit.scaleByAxis[axis]):rest,distal=pointThroughAnatomicalFrame(point,frames[side].distal),proximal=pointThroughAnatomicalFrame(point,frames[side].proximal),weight=shoes?1-step01(-3.18,-2.92,point[1]):step01(1.05,1.24,Math.abs(point[0])),value=blendPoint(proximal,distal,weight);for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(value[axis]-rest[axis]));mesh.positions[at+axis]=value[axis];}}
+    if(shoes)largest=Math.max(largest,alignShoesToFeet(mesh),fitCloseFittingLimbEnvelope(mesh));else {if(shortGlove)largest=Math.max(largest,alignShortGloveToHand(mesh));largest=Math.max(largest,shiftGlovesDistally(mesh,shortGlove?.135:.070),fitCloseFittingLimbEnvelope(mesh));}return largest;
   }
   const nativeDetailComponentCache=new Map();
   function nativeDetailComponents(kind){
@@ -655,6 +897,13 @@
       const seen=new Uint8Array(selected.length);components=[];for(const start of neighbours.keys()){if(seen[start])continue;const stack=[start],component=[];seen[start]=1;while(stack.length){const vertex=stack.pop();component.push(vertex);for(const other of neighbours.get(vertex))if(!seen[other]){seen[other]=1;stack.push(other);}}if(component.length>=3)components.push(component);}nativeDetailComponentCache.set(kind,{rig:importedRig,components});
     }
     return components.map(vertices=>{const neutralFrame=detailComponentFrame(vertices,index=>importedRig.neutralPoint(index)),currentFrame=detailComponentFrame(vertices,index=>importedRig.worldPoint(index),neutralFrame.basis);return {vertices,neutralFrame,currentFrame};});
+  }
+  function fitRingToRingFinger(mesh){
+    const source=positionBounds(mesh.restPositions),authoredLeft=source.center[0]<0,side=authoredLeft?'left':'right',sign=side==='left'?-1:1,hand=partById[`${side}_hand`],targets=nativeDetailComponents('fingerNails').filter(target=>(target.currentFrame.origin[0]<0?-1:1)===sign);if(!hand||targets.length<5)return 0;
+    // The thumb is the only nail substantially nearer the wrist in neutral
+    // space. Of the four remaining nails, the ring finger is second from the
+    // little-finger edge. This remains stable for either hand and through pose.
+    const thumb=targets.reduce((best,target)=>target.neutralFrame.origin[1]>best.neutralFrame.origin[1]?target:best,targets[0]),fingers=targets.filter(target=>target!==thumb).sort((a,b)=>a.neutralFrame.origin[2]-b.neutralFrame.origin[2]),landmark=fingers[Math.min(1,fingers.length-1)],handCenter=positionBounds(hand.positions).center,longitudinal=normal(sub(handCenter,landmark.currentFrame.origin)),targetCenter=blendPoint(landmark.currentFrame.origin,handCenter,.58),vertices=Array.from({length:mesh.restPositions.length/3},(_,index)=>index),sourceFrame=detailComponentFrame(vertices,index=>{const at=index*3;return [mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]];}),thinAxis=sourceFrame.extent.indexOf(Math.min(...sourceFrame.extent)),radialAxes=[0,1,2].filter(axis=>axis!==thinAxis),guide=landmark.currentFrame.axes.reduce((best,axis)=>Math.abs(dot(axis,longitudinal))<Math.abs(dot(best,longitudinal))?axis:best,landmark.currentFrame.axes[0]),across=normal(sub(guide,scale(longitudinal,dot(guide,longitudinal)))),depth=normal(cross(longitudinal,across)),targetAxes=[];targetAxes[thinAxis]=longitudinal;targetAxes[radialAxes[0]]=across;targetAxes[radialAxes[1]]=depth;const radialSource=Math.max(sourceFrame.extent[radialAxes[0]],sourceFrame.extent[radialAxes[1]])*.5,targetRadius=clamp(Math.max(...landmark.currentFrame.extent)*.62,.018,.034),radialScale=targetRadius/Math.max(radialSource,1e-5),thinScale=.009/Math.max(sourceFrame.extent[thinAxis],1e-5);let largest=0;for(let at=0;at<mesh.restPositions.length;at+=3){const rest=[mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]],local=sourceFrame.axes.map(axis=>dot(sub(rest,sourceFrame.origin),axis)),point=targetCenter.slice();for(let localAxis=0;localAxis<3;localAxis++){const amount=local[localAxis]*(localAxis===thinAxis?thinScale:radialScale);for(let world=0;world<3;world++)point[world]+=targetAxes[localAxis][world]*amount;}for(let axis=0;axis<3;axis++){largest=Math.max(largest,Math.abs(point[axis]-mesh.positions[at+axis]));mesh.positions[at+axis]=point[axis];}}return largest;
   }
   function alignDetailToNative(mesh,kind){
     const sourceComponents=meshTopologyComponents(mesh),allTargets=nativeDetailComponents(kind);if(!sourceComponents.length||!allTargets.length)return 0;
@@ -710,12 +959,55 @@
     return largest;
   }
   function updateMeshAppearanceAsset(mesh) {
+    if(mesh.catalog?.category==='Hats'){
+      // Hats are manufactured rigid objects. Never replay a per-vertex
+      // MakeHuman proxy on them: that is what tore brims, squeezed crowns and
+      // produced different shapes for the two body models. A single uniform
+      // head-frame scale plus a scalp-contact translation preserves every
+      // authored seam and decorative component.
+      mesh.positions.set(mesh.restPositions);prepareSurfaceBindings(mesh);const fitted=fitRigidHatToHead(mesh),contact=seatRigidHatOnScalp(mesh);mesh.fitStats={bound:!!fitted,deformationMode:'rigid head fit',maxMotion:Math.max(fitted?.maxMotion||0,contact),maxOffset:0,maxClearanceCorrection:contact,invalidVertices:fitted?.invalid||0,uniformScale:fitted?.uniform||1,sourceError:mesh.bindSourceError};
+      weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+    }
+    if(mesh.catalog?.category==='Shoes'){
+      mesh.positions.set(mesh.restPositions);const motion=fitAuthoredExtremity(mesh);mesh.fitStats={bound:true,deformationMode:'authored per-foot frame transfer + per-foot contact alignment',maxMotion:motion,maxOffset:0,maxClearanceCorrection:0,invalidVertices:0,sourceError:null};weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+    }
+    if(mesh.catalog?.category==='Gloves'){
+      // These assets already contain MakeHuman's vertex-level proxy binding.
+      // Replacing that binding with a single limb frame sends fingers and cuff
+      // panels through the torso. Preserve the authored field; use the rigid
+      // extremity fallback only for an asset that genuinely has no proxy.
+      mesh.positions.set(mesh.restPositions);const bound=updateMakeHumanBoundAsset(mesh),motion=bound?0:fitAuthoredExtremity(mesh);if(bound)mesh.fitStats.deformationMode+=' + authored hand and cuff fit';else mesh.fitStats={bound:true,deformationMode:'authored per-hand frame transfer + per-hand contact alignment',maxMotion:motion,maxOffset:0,maxClearanceCorrection:0,invalidVertices:0,sourceError:null};weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+    }
+    if(mesh.catalog?.placement?.startsWith('watch-')){
+      mesh.positions.set(mesh.restPositions);const motion=fitStandaloneWatch(mesh);mesh.fitStats={bound:true,deformationMode:'rigid articulated wristwatch fit',maxMotion:motion,maxOffset:0,maxClearanceCorrection:0,invalidVertices:0,sourceError:null};weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+    }
+    if(mesh.catalog?.category==='Rings'){
+      // A MakeHuman ring proxy already identifies its exact finger and follows
+      // every knuckle. Applying a second landmark fit changes that identity and
+      // was moving rings to the wrong digit. Only proxy-less rings need the
+      // native ring-finger fallback.
+      mesh.positions.set(mesh.restPositions);const bound=updateMakeHumanBoundAsset(mesh),motion=bound?0:fitRingToRingFinger(mesh);if(bound)mesh.fitStats.deformationMode+=' + authored ring-finger fit';else mesh.fitStats={bound:true,deformationMode:'native ring-finger registration',maxMotion:motion,maxOffset:0,maxClearanceCorrection:motion,invalidVertices:0,sourceError:null};weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+    }
+    if(mesh.catalog?.category==='Wrist accessories'){
+      mesh.positions.set(mesh.restPositions);const bound=updateMakeHumanBoundAsset(mesh),motion=bound?0:fitRigidWristAccessory(mesh);if(bound)mesh.fitStats.deformationMode+=' + authored wrist fit';else mesh.fitStats={bound:true,deformationMode:'rigid anatomical wrist registration',maxMotion:motion,maxOffset:0,maxClearanceCorrection:0,invalidVertices:0,sourceError:null};weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+    }
+    if(mesh.catalog?.category==='Underlayers'&&/sock|stocking|pantyhose|leg.warmer/i.test(`${mesh.id} ${mesh.catalog?.name||''}`)){
+      mesh.positions.set(mesh.restPositions);const bound=updateMakeHumanBoundAsset(mesh),motion=bound?0:fitContinuousLimbLayer(mesh,'lower');if(bound)mesh.fitStats.deformationMode+=' + authored foot, ankle and leg fit';else mesh.fitStats={bound:true,deformationMode:'continuous authored foot-calf-thigh frame transfer',maxMotion:motion,maxOffset:0,maxClearanceCorrection:0,invalidVertices:0,sourceError:null};weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+    }
     if(updateMakeHumanBoundAsset(mesh)){
       // MakeHuman's authored proxy equation is the source of truth. It fits
       // each asset vertex to the same base vertices used by MakeHuman itself,
       // so body morphs and poses cannot detach footwear, hair or face details.
-      if(mesh.catalog?.category==='Hats'){prepareSurfaceBindings(mesh);mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,alignHatToHead(mesh));mesh.fitStats.deformationMode+=' + scalp contact alignment';}
-      else if(mesh.catalog?.category==='Hair'){prepareSurfaceBindings(mesh);mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,alignHairToScalp(mesh),enforceSurfaceClearance(mesh,.012,.065,anchor=>anchor[1]>2.30));mesh.fitStats.deformationMode+=' + scalp contact alignment';}
+      if(mesh.catalog?.category==='Necklaces'){mesh.fitStats.deformationMode+=' + authored jewelry surface fit';}
+      else if(mesh.catalog?.category==='Eyewear'){
+        // A valid MakeHuman proxy is a good first-stage attachment, but its
+        // source head is not guaranteed to share this model's eye spacing or
+        // ear width. Apply the same rigid eye/ear registration used by
+        // proxy-less frames so every lens sits over an eye and the temples
+        // remain bounded by the head.
+        mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,alignEyewearToFace(mesh));mesh.fitStats.deformationMode+=' + anatomical head frame registration';
+      }
+      else if(mesh.catalog?.category==='Hair'){mesh.fitStats.deformationMode+=' + authored scalp fit';}
       else if(mesh.catalog?.category==='Facial hair'){
         // MakeHuman facial hair already carries the same proxy binding as the
         // face. Preserve that authored mouth opening, and only prevent the mesh
@@ -725,12 +1017,17 @@
       }
       else if(['Eyebrows','Eyelashes'].includes(mesh.catalog?.category)){prepareSurfaceBindings(mesh);mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,enforceSurfaceClearance(mesh,.003,.025,anchor=>anchor[1]>2.42));mesh.fitStats.deformationMode+=' + face-shape transfer';}
       else if(['Finger nails','Toe nails'].includes(mesh.catalog?.category)){prepareSurfaceBindings(mesh);const kind=mesh.catalog.category==='Finger nails'?'fingerNails':'toeNails';mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,alignDetailToNative(mesh,kind));mesh.fitStats.deformationMode+=' + native nail-surface registration';}
-      else if(['Tops','Dresses','Bottoms','Skirts','Underlayers','Gloves'].includes(mesh.catalog?.category)){prepareSurfaceBindings(mesh);const garment=['Tops','Dresses','Bottoms','Skirts','Underlayers'].includes(mesh.catalog.category),regularized=garment?regularizeProxyDeformation(mesh,2,.34):0;mesh.fitStats.maxMotion=Math.max(mesh.fitStats.maxMotion,regularized,enforceSurfaceClearance(mesh,appearanceClearance(mesh.catalog.category),.035),sealCenteredGarment(mesh));mesh.fitStats.deformationMode+=garment?' + topology regularization + collision clearance':' + collision clearance';}
-    }else if(rigidHeadCategories.has(mesh.catalog?.category)&&prepareSurfaceBindings(mesh)){
-      if(mesh.catalog.category==='Hats'){
-        const fitted=fitRigidHatToHead(mesh),contact=seatRigidHatOnScalp(mesh);mesh.fitStats={bound:!!fitted,deformationMode:'rigid head fit',maxMotion:Math.max(fitted?.maxMotion||0,contact),maxOffset:0,maxClearanceCorrection:contact,invalidVertices:fitted?.invalid||0,uniformScale:fitted?.uniform||1,sourceError:mesh.bindSourceError};
-        recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);return;
+      else if(mesh.catalog?.category==='Shoes')mesh.fitStats.deformationMode+=' + per-foot authored proxy fit';
+      else if(mesh.catalog?.category==='Gloves')mesh.fitStats.deformationMode+=' + per-hand authored proxy fit';
+      else if(['Tops','Dresses','Bottoms','Skirts','Underlayers'].includes(mesh.catalog?.category)){
+        // The proxy already maps every garment vertex to its intended body
+        // neighbourhood.  Nearest-limb envelopes and world-space leg shells
+        // applied after that mapping pulled disconnected panels across the
+        // crotch, shoulder, forearm and ankle.  Preserve the authored field;
+        // only reunite export duplicates in weldCoincidentAssetSeams below.
+        mesh.fitStats.deformationMode+=' + authored garment fit';
       }
+    }else if(rigidHeadCategories.has(mesh.catalog?.category)&&prepareSurfaceBindings(mesh)){
       const paired=pairedHeadCategories.has(mesh.catalog.category),groups={all:[[],[],[]],left:[[],[],[]],right:[[],[],[]]},count=mesh.restPositions.length/3,stride=Math.max(1,Math.floor(count/900));let invalid=0,maxMotion=0;
       for(let vertex=0;vertex<count;vertex+=stride){const at=vertex*3,ids=[mesh.bindSurfaceIndices[at],mesh.bindSurfaceIndices[at+1],mesh.bindSurfaceIndices[at+2]],weights=[mesh.bindSurfaceWeights[at],mesh.bindSurfaceWeights[at+1],mesh.bindSurfaceWeights[at+2]],anchor=[0,0,0];for(let corner=0;corner<3;corner++){const point=importedRig.worldPoint(ids[corner]);for(let axis=0;axis<3;axis++)anchor[axis]+=point[axis]*weights[corner];}const group=paired?(mesh.restPositions[at]<0?groups.left:groups.right):groups.all;for(let axis=0;axis<3;axis++)group[axis].push(anchor[axis]-mesh.bindGuidePositions[at+axis]);}
       const translations={};for(const [name,axes] of Object.entries(groups))translations[name]=axes.map(median);
@@ -745,19 +1042,33 @@
       let maxMotion=0,maxOffset=0,maxClearanceCorrection=0,invalid=0;const preserveAuthoredShape=['Tops','Dresses','Bottoms','Skirts','Underlayers','Shoes','Gloves'].includes(mesh.catalog?.category),clearance=appearanceClearance(mesh.catalog?.category);
       for(let vertex=0;vertex<mesh.restPositions.length/3;vertex++){
         const at=vertex*3,ids=[mesh.bindSurfaceIndices[at],mesh.bindSurfaceIndices[at+1],mesh.bindSurfaceIndices[at+2]],weights=[mesh.bindSurfaceWeights[at],mesh.bindSurfaceWeights[at+1],mesh.bindSurfaceWeights[at+2]],points=ids.map(index=>importedRig.worldPoint(index)),anchor=[0,0,0];
-        for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*weights[corner];const motion=[anchor[0]-mesh.bindNeutralAnchors[at],anchor[1]-mesh.bindNeutralAnchors[at+1],anchor[2]-mesh.bindNeutralAnchors[at+2]],local=[mesh.bindLocalOffsets[at],mesh.bindLocalOffsets[at+1],mesh.bindLocalOffsets[at+2]],rest=preserveAuthoredShape?mesh.restPositions:mesh.bindRestPositions,position=[rest[at]+motion[0],rest[at+1]+motion[1],rest[at+2]+motion[2]];if(preserveAuthoredShape){const frame=outwardAttachmentFrame(points,anchor),distance=dot(sub(position,anchor),frame.n),correction=Math.min(.025,Math.max(0,clearance-distance));if(correction){for(let axis=0;axis<3;axis++)position[axis]+=frame.n[axis]*correction;maxClearanceCorrection=Math.max(maxClearanceCorrection,correction);}}maxMotion=Math.max(maxMotion,Math.hypot(...motion));maxOffset=Math.max(maxOffset,Math.hypot(...local));for(let axis=0;axis<3;axis++){const value=position[axis];mesh.positions[at+axis]=value;if(!Number.isFinite(value))invalid++;}
+        for(let corner=0;corner<3;corner++)for(let axis=0;axis<3;axis++)anchor[axis]+=points[corner][axis]*weights[corner];const motion=[anchor[0]-mesh.bindNeutralAnchors[at],anchor[1]-mesh.bindNeutralAnchors[at+1],anchor[2]-mesh.bindNeutralAnchors[at+2]],local=[mesh.bindLocalOffsets[at],mesh.bindLocalOffsets[at+1],mesh.bindLocalOffsets[at+2]],rest=preserveAuthoredShape?mesh.restPositions:mesh.bindRestPositions;let position;
+        if(mesh.catalog?.category==='Bottoms'){
+          // Move the authored trouser topology through a continuous hip/knee
+          // field first. The residual between that field and the body's actual
+          // skinned attachment carries measurements and model-specific joint
+          // corrections without letting neighbouring cloth vertices inherit
+          // unrelated triangle frames at the crotch or knee.
+          const neutralAnchor=[mesh.bindNeutralAnchors[at],mesh.bindNeutralAnchors[at+1],mesh.bindNeutralAnchors[at+2]],posedRest=poseBottomsPoint([mesh.restPositions[at],mesh.restPositions[at+1],mesh.restPositions[at+2]]),posedAnchor=poseBottomsPoint(neutralAnchor);position=posedRest.map((value,axis)=>value+anchor[axis]-posedAnchor[axis]);
+        }else position=[rest[at]+motion[0],rest[at+1]+motion[1],rest[at+2]+motion[2]];
+        if(preserveAuthoredShape){const frame=boundAttachmentFrame(mesh,at,points,anchor),distance=dot(sub(position,anchor),frame.n),correction=Math.min(.025,Math.max(0,clearance-distance));if(correction){for(let axis=0;axis<3;axis++)position[axis]+=frame.n[axis]*correction;maxClearanceCorrection=Math.max(maxClearanceCorrection,correction);}}maxMotion=Math.max(maxMotion,Math.hypot(...motion));maxOffset=Math.max(maxOffset,Math.hypot(...local));for(let axis=0;axis<3;axis++){const value=position[axis];mesh.positions[at+axis]=value;if(!Number.isFinite(value))invalid++;}
       }
-      if(mesh.catalog?.category==='Shoes')maxMotion=Math.max(maxMotion,alignShoesToFeet(mesh));
-      else if(mesh.catalog?.category==='Gloves')maxMotion=Math.max(maxMotion,alignGlovesToHands(mesh));
+      if(mesh.catalog?.category==='Shoes')maxMotion=Math.max(maxMotion,alignShoesToFeet(mesh),fitLowerLegLayer(mesh),enforceSurfaceClearance(mesh,appearanceClearance('Shoes'),.080));
+      else if(mesh.catalog?.category==='Gloves')maxMotion=Math.max(maxMotion,alignGlovesToHands(mesh),enforceSurfaceClearance(mesh,appearanceClearance('Gloves'),.080));
+      else if(mesh.catalog?.category==='Bottoms'){
+        const legPose=Math.max(Math.abs(pose.leftHip||0),Math.abs(pose.rightHip||0),Math.abs(pose.leftKnee||0),Math.abs(pose.rightKnee||0));
+        maxMotion=Math.max(maxMotion,regularizeProxyDeformation(mesh,legPose>5?8:2,legPose>5?.58:.26),fitLowerLegLayer(mesh),fitBottomsOutsideLegSurface(mesh),enforceSurfaceClearance(mesh,appearanceClearance('Bottoms'),.12),sealCenteredGarment(mesh));
+      }
       else maxMotion=Math.max(maxMotion,sealCenteredGarment(mesh));
-      mesh.fitStats={bound:true,deformationMode:mesh.catalog?.category==='Shoes'?'topology-preserving body displacement field + per-foot contact alignment':mesh.catalog?.category==='Gloves'?'topology-preserving body displacement field + per-hand contact alignment':preserveAuthoredShape?'topology-preserving body displacement field':'surface-fitted detail displacement field',maxMotion,maxOffset,maxClearanceCorrection,invalidVertices:invalid/3,sourceError:mesh.bindSourceError};
-    }else {for(let i=0;i<mesh.restPositions.length;i+=3){const transformed=transformAppearancePoint(mesh.id,[mesh.restPositions[i],mesh.restPositions[i+1],mesh.restPositions[i+2]]);mesh.positions.set(transformed,i);}mesh.fitStats={bound:false,minScale:1,maxScale:1,maxOffset:0,invalidVertices:0,sourceError:null};}
-    recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);
+      mesh.fitStats={bound:true,deformationMode:mesh.catalog?.category==='Shoes'?'topology-preserving body displacement field + per-foot contact alignment':mesh.catalog?.category==='Gloves'?'topology-preserving body displacement field + per-hand contact alignment':preserveAuthoredShape?'topology-preserving body displacement field':'surface-fitted detail displacement field',maxMotion,maxOffset,maxClearanceCorrection,invalidVertices:invalid/3,sourceError:mesh.bindSourceError,proxyCompatibility:mesh.proxyCompatibility||null};
+    }else {for(let i=0;i<mesh.restPositions.length;i+=3){const transformed=transformAppearancePoint(mesh.id,[mesh.restPositions[i],mesh.restPositions[i+1],mesh.restPositions[i+2]]);mesh.positions.set(transformed,i);}if(mesh.catalog?.category==='Eyewear'){const correction=alignEyewearToFace(mesh);mesh.fitStats={bound:true,deformationMode:'fallback rigid anatomical head frame',maxMotion:correction,minScale:1,maxScale:1,maxOffset:0,maxClearanceCorrection:0,invalidVertices:0,sourceError:null};}else mesh.fitStats={bound:false,minScale:1,maxScale:1,maxOffset:0,invalidVertices:0,sourceError:null};}
+    weldCoincidentAssetSeams(mesh);recomputeNormals(mesh);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.DYNAMIC_DRAW);
   }
+  function hatRequiresBareScalp(item){return item?.category==='Hats'&&/(?:swim|patrol|flat).?cap|beanie|knitted|sherpa|close.?fit/i.test(`${item.id} ${item.name||''}`);}
   function activeMeshAppearanceAssets(){
-    const result=[];
-    for(const id of bodySettings.equippedAssets||[]){const item=appearanceById.get(id);if(!item)continue;const hair=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(item.category),dark=['Eyewear'].includes(item.category),eyes=item.category==='Eyes',groomingColour={'Facial hair':bodySettings.facialHairColor||'#3b2a22',Eyebrows:bodySettings.eyebrowColor||'#3b2a22',Eyelashes:bodySettings.eyelashColor||'#171412',Hair:'#35261f'}[item.category];result.push({id,colour:eyes?(bodySettings.eyeColor||'#514c48'):(groomingColour||(dark?'#20262d':'#2e4551')),fabric:hair?0:.85,category:item.category});}
-    const layer={Underlayers:0,Tops:10,Dresses:10,Bottoms:20,Skirts:20,Shoes:30,Gloves:30,'Body accessories':35,Eyes:40,Eyebrows:41,Eyelashes:42,'Facial hair':43,Hair:44,Hats:45,Eyewear:46};return result.sort((a,b)=>(layer[a.category]||0)-(layer[b.category]||0));
+    const result=[],equipped=(bodySettings.equippedAssets||[]).map(id=>appearanceById.get(id)).filter(Boolean),hasGloves=equipped.some(item=>item.category==='Gloves'),closedFootwear=equipped.some(item=>item.category==='Shoes'&&!/sandal|flip|open|peep|barefoot/i.test(`${item.id} ${item.name||''}`)),tightHat=equipped.some(hatRequiresBareScalp);
+    for(const item of equipped){const {id}=item;if((item.category==='Finger nails'&&hasGloves)||(item.category==='Toe nails'&&closedFootwear)||(item.category==='Hair'&&tightHat))continue;const hair=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(item.category),dark=['Eyewear'].includes(item.category),eyes=item.category==='Eyes',groomingColour={'Facial hair':bodySettings.facialHairColor||'#3b2a22',Eyebrows:bodySettings.eyebrowColor||'#3b2a22',Eyelashes:bodySettings.eyelashColor||'#171412',Hair:bodySettings.hairColor||'#35261f'}[item.category];result.push({id,colour:eyes?(bodySettings.eyeColor||'#514c48'):(groomingColour||(dark?'#20262d':'#2e4551')),fabric:hair?0:.85,category:item.category});}
+    const layer={'Finger nails':5,'Toe nails':5,Underlayers:10,Tops:20,Dresses:20,Bottoms:30,Skirts:30,Shoes:40,Gloves:40,'Body accessories':45,'Wrist accessories':46,Rings:47,Necklaces:48,Eyes:50,Eyebrows:51,Eyelashes:52,'Facial hair':53,Hair:54,Hats:55,Eyewear:56};return result.sort((a,b)=>(layer[a.category]||0)-(layer[b.category]||0));
   }
   let appearanceBodyMaskState={hiddenVertices:0,hiddenTriangles:0,totalTriangles:0};
   function authoredAppearanceCoverage(mesh){
@@ -779,43 +1090,36 @@
   }
   function updateAppearanceBodyMask(){
     if(software||!importedRig)return;
-    const hidden=new Uint8Array(importedRig.vertexCount),explicitAssets=[],derivedAssets=[];
+    const hidden=new Uint8Array(importedRig.vertexCount),explicitAssets=[];
     for(const id of bodySettings.equippedAssets||[]){
       const mesh=ensureMeshAppearanceAsset(id),category=mesh?.catalog?.category;if(!mesh||!bodyOcclusionCategories.has(category))continue;
       if(mesh.fitRevision!==appearanceFitRevision){updateMeshAppearanceAsset(mesh);mesh.fitRevision=appearanceFitRevision;appearanceRefits++;}
-      // Only an authored MakeHuman delete_verts set is precise enough for a
-      // garment opening.  Synthesising a mask from nearby body triangles can
-      // remove skin just beyond a neckline, cuff or hem and expose the scene
-      // background.  Shoes and gloves are the exception: they fully enclose a
-      // compact extremity, so a conservative per-side volume is appropriate.
-      let coverage=authoredAppearanceCoverage(mesh),derived=category==='Shoes'||category==='Gloves'?boundsAppearanceCoverage(mesh):null;
-      if(coverage){explicitAssets.push(id);if(derived)for(let vertex=0;vertex<coverage.length;vertex++)coverage[vertex]=(coverage[vertex]||derived[vertex])?1:0;}else{coverage=derived;if(coverage)derivedAssets.push(id);}
-      if(!coverage)continue;for(let vertex=0;vertex<coverage.length;vertex++)if(coverage[vertex])hidden[vertex]=1;
+      const coverage=authoredAppearanceCoverage(mesh);if(!coverage)continue;explicitAssets.push(id);for(let vertex=0;vertex<coverage.length;vertex++)if(coverage[vertex])hidden[vertex]=1;
     }
     let hiddenTriangles=0,totalTriangles=0;
     for(const part of parts){
       if(!part.sourceIndices)continue;
       if(!part.appearanceBaseIndices)part.appearanceBaseIndices=part.indices;
       const source=part.appearanceBaseIndices,visible=[];totalTriangles+=source.length/3;
-      for(let at=0;at<source.length;at+=3){
-        const a=part.sourceIndices[source[at]],b=part.sourceIndices[source[at+1]],c=part.sourceIndices[source[at+2]],covered=a<hidden.length&&b<hidden.length&&c<hidden.length&&hidden[a]+hidden[b]+hidden[c]===3;
-        if(covered){hiddenTriangles++;continue;}
-        visible.push(source[at],source[at+1],source[at+2]);
-      }
+      for(let at=0;at<source.length;at+=3){const a=part.sourceIndices[source[at]],b=part.sourceIndices[source[at+1]],c=part.sourceIndices[source[at+2]],covered=a<hidden.length&&b<hidden.length&&c<hidden.length&&hidden[a]+hidden[b]+hidden[c]===3;if(covered){hiddenTriangles++;continue;}visible.push(source[at],source[at+1],source[at+2]);}
       part.indices=new source.constructor(visible);part.count=part.indices.length;gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,part.ib);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,part.indices,gl.DYNAMIC_DRAW);
     }
-    appearanceBodyMaskState={hiddenVertices:hidden.reduce((sum,value)=>sum+value,0),hiddenTriangles,totalTriangles,explicitAssets:explicitAssets.length,derivedAssets:derivedAssets.length,replacedPrimitives:[]};
+    appearanceBodyMaskState={hiddenVertices:hidden.reduce((sum,value)=>sum+value,0),hiddenTriangles,totalTriangles,explicitAssets:explicitAssets.length,derivedAssets:0,replacedPrimitives:[]};
   }
-  // Opaque garments use their authored MakeHuman coverage map to suppress
-  // body-surface breakthrough. Assets without one derive a conservative map
-  // from their own proxy bindings, including trousers, shoes and gloves.
-  const bodyOcclusionCategories=new Set(['Tops','Dresses','Bottoms','Skirts','Shoes','Gloves']);
+  // Never delete body triangles to make a garment appear opaque. MakeHuman's
+  // delete_verts metadata belongs to its source mesh and is not reliable after
+  // this app's model conversion, vertex splitting and body morphs: at cuffs,
+  // hems and waistbands it can remove skin beyond the garment and reveal the
+  // scene background. Physical depth plus fitted garment clearance is the
+  // source of truth here, so the anatomical surface always remains continuous.
+  const bodyOcclusionCategories=new Set();
   const opaqueAppearanceCategories=new Set(['Tops','Dresses','Bottoms','Skirts','Underlayers','Shoes','Gloves','Hats']);
+  function appearanceUsesTextureTransparency(mesh){const opacity=Number(mesh?.material?.opacity);if(Number.isFinite(opacity)&&opacity<.985)return true;const sampled=mesh?.alphaMap;if(sampled&&Number.isFinite(sampled.sampledMean)&&(sampled.sampledLowFraction>.03||sampled.sampledMean<.94))return true;return /fishnet|transparent|sheer|lace|mesh|netting|tulle|veil/i.test(`${mesh?.id||''} ${mesh?.catalog?.name||''}`);}
   function renderMeshAppearanceAssets(){
     if(software)return;const active=activeMeshAppearanceAssets();if(!active.length)return;ensureMeshAppearanceProgram();const pgr=meshAppearanceProgram;gl.useProgram(pgr.instance);gl.uniformMatrix4fv(pgr.vp,false,viewProjection);gl.enable(gl.DEPTH_TEST);gl.depthMask(true);gl.disable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
     for(const entry of active){
       const mesh=ensureMeshAppearanceAsset(entry.id);if(!mesh)continue;if(mesh.fitRevision!==appearanceFitRevision){updateMeshAppearanceAsset(mesh);mesh.fitRevision=appearanceFitRevision;appearanceRefits++;}
-      const eyes=entry.category==='Eyes',grooming=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(entry.category),tintedGrooming=['Facial hair','Eyebrows','Eyelashes'].includes(entry.category),source=eyes||grooming&&mesh.textureReady?(tintedGrooming?colour4(entry.colour||'#3b2a22'):[1,1,1,1]):grooming?colour4(entry.colour||'#35261f'):mesh.material.diffuseColor,colour=source?.length>=3?[source[0],source[1],source[2],Number.isFinite(mesh.material.opacity)?mesh.material.opacity:1]:colour4(entry.colour||'#2e4551'),accent=eyes?colour4(bodySettings.eyeColor||'#514c48'):colour4('#d0a36f'),fallback=mesh.textureAverage||colour,forceOpaque=opaqueAppearanceCategories.has(entry.category)&&!mesh.textureReady,depthBias={Underlayers:.00018,Tops:.00025,Dresses:.00025,Bottoms:.00025,Skirts:.00025,Shoes:.00016,Gloves:.00020,'Finger nails':.00016,'Toe nails':.00016,Hair:.00004,'Facial hair':.00005,Eyebrows:.00006,Eyelashes:.00007,Eyewear:.00004}[entry.category]||0;
+      const eyes=entry.category==='Eyes',grooming=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(entry.category),tintedGrooming=['Hair','Facial hair','Eyebrows','Eyelashes'].includes(entry.category),source=eyes||grooming&&mesh.textureReady?(tintedGrooming?colour4(entry.colour||'#3b2a22'):[1,1,1,1]):grooming?colour4(entry.colour||'#35261f'):mesh.material.diffuseColor,colour=source?.length>=3?[source[0],source[1],source[2],Number.isFinite(mesh.material.opacity)?mesh.material.opacity:1]:colour4(entry.colour||'#2e4551'),accent=eyes?colour4(bodySettings.eyeColor||'#514c48'):colour4('#d0a36f'),fallback=mesh.textureAverage||colour,forceOpaque=opaqueAppearanceCategories.has(entry.category)&&!appearanceUsesTextureTransparency(mesh),depthBias={Underlayers:.0012,Tops:.0014,Dresses:.0014,Bottoms:.0015,Skirts:.0014,Shoes:.0016,Gloves:.0016,'Finger nails':.00016,'Toe nails':.00016,Hair:.00004,'Facial hair':.00005,Eyebrows:.00006,Eyelashes:.00007,Eyewear:.00004}[entry.category]||0;
       gl.uniform4fv(pgr.colour,colour);gl.uniform3fv(pgr.accent,accent.slice(0,3));gl.uniform3fv(pgr.atlasFallback,fallback.slice(0,3));gl.uniform1f(pgr.fabric,entry.fabric);gl.uniform1f(pgr.useTexture,mesh.textureReady?1:0);gl.uniform1f(pgr.forceOpaque,forceOpaque?1:0);gl.uniform1f(pgr.depthBias,depthBias);gl.uniform1f(pgr.shininess,clamp(Number(mesh.material.shininess)||0,0,1));gl.uniform1f(pgr.eye,eyes?1:0);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,mesh.texture);gl.uniform1i(pgr.texture,0);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.pb);gl.vertexAttribPointer(pgr.pos,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.pos);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.nb);gl.vertexAttribPointer(pgr.norm,3,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.norm);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.ub);gl.vertexAttribPointer(pgr.uv,2,gl.FLOAT,false,0,0);gl.enableVertexAttribArray(pgr.uv);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.ib);gl.drawElements(gl.TRIANGLES,mesh.count,mesh.indexType,0);
     }gl.disable(gl.BLEND);
   }
@@ -824,13 +1128,14 @@
     const ctx = p.ctx, W = p.canvas.width, H = p.canvas.height;
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = ({
-      skin: bodySettings.skinTone || '#dfc8b3', cloth: '#82909c', brief: '#272d35', areola: '#c29a88', nipple: '#ae8172',
+      skin: bodySettings.skinTone || '#dfc8b3', cloth: '#82909c', areola: '#c29a88', nipple: '#ae8172',
       navel: '#8e6c5b', shadow: '#9d796a', eyewhite: '#f2eee8', iris: '#514c48', brow: '#8e7064', lip: bodySettings.lipColor || '#ba9485'
     }[p.color] || '#dfc8b3');
     ctx.fillRect(0, 0, W, H);
-    if (p.color === 'brief') {
-      ctx.fillStyle = '#343c46';
-      ctx.fillRect(0, 0, W, Math.max(3, H * .025));
+    if(p.id==='torso'&&p.restPositions&&p.uvs){
+      const female=bodySettings.modelType==='female',volumeLift=female?clamp(((Number(bodySettings.breastSize)||50)-50)/350,0,1)*.026:0;p.nippleUVs=[];
+      for(const sign of [-1,1]){let best=-1,front=-Infinity;for(let vertex=0;vertex<p.restPositions.length/3;vertex++){const at=vertex*3,x=p.restPositions[at],y=p.restPositions[at+1],z=p.restPositions[at+2];if((x<0?-1:1)!==sign||Math.abs(x)<.16||Math.abs(x)>.52||y<1.38||y>1.88)continue;if(z>front){front=z;best=vertex;}}if(best>=0){const u=p.uvs[best*2]+(sign<0?-.028:.028);p.nippleUVs.push([u,p.uvs[best*2+1]+volumeLift]);}}
+      const skin=colour4(bodySettings.skinTone||'#dfc8b3').slice(0,3),natural=(scale,rose)=>`rgb(${skin.map((value,index)=>Math.round(clamp(value*scale+rose[index],0,1)*255)).join(',')})`,areola=natural(.72,[.095,.025,.022]),nipple=natural(.56,[.12,.032,.028]),areolaW=female?.011:.012,areolaH=female?.024:.017,nippleW=female?.004:.0045,nippleH=female?.0085:.0065;for(const uv of p.nippleUVs||[])for(const wrap of [-1,0,1]){const x=(uv[0]+wrap)*W,y=(1-uv[1])*H;ctx.fillStyle=areola;ctx.beginPath();ctx.ellipse(x,y,W*areolaW,H*areolaH,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=nipple;ctx.beginPath();ctx.ellipse(x,y,W*nippleW,H*nippleH,0,0,Math.PI*2);ctx.fill();}
     }
     for (const copy of (importedRig ? [] : decalsForPart(p))) {
       const tattoo = copy.tattoo;
@@ -1146,27 +1451,29 @@
 
   function measureTattooDistortion(tattoo) { const mesh = ensureDecalMesh(tattoo); if (!mesh) return null; updateDecalPose(mesh); return mesh.analysis; }
 
-  function renderProjectedDecals() {
+  function renderProjectedDecals(xray=false) {
     if (software || !importedRig) return;
     ensureDecalProgram(); const live = new Set(tattoos.map(t => t.id));
     for (const [id, mesh] of decalMeshes) if (!live.has(id)) { for (const buffer of [mesh.pb, mesh.nb, mesh.ub, mesh.ib]) if (buffer) gl.deleteBuffer(buffer); if (mesh.texture) gl.deleteTexture(mesh.texture); decalMeshes.delete(id); }
-    gl.useProgram(decalProgram); gl.uniformMatrix4fv(decalProgram.locations.vp, false, viewProjection); gl.enable(gl.DEPTH_TEST); gl.depthMask(false); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1, -1);
+    gl.useProgram(decalProgram); gl.uniformMatrix4fv(decalProgram.locations.vp, false, viewProjection); if(xray)gl.disable(gl.DEPTH_TEST);else gl.enable(gl.DEPTH_TEST); gl.depthMask(false); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(-1, -1);
     for (const tattoo of tattoos) {
       if (tattoo.hidden) continue;
-      const covered = clothingCoverage(tattoo.part, tattoo.v);
-      if (covered && !bodySettings.clothingXRay) continue;
       const mesh = ensureDecalMesh(tattoo); if (!mesh || !mesh.indices.length) continue; updateDecalPose(mesh);
       const risk = mesh.analysis?.grade || 'good', riskColour = risk === 'high' ? [.92, .23, .25] : risk === 'moderate' ? [1, .64, .16] : [.28, .78, .48];
-      gl.uniform1f(decalProgram.locations.opacity, (tattoo.opacity ?? .92) * (covered ? .24 : 1)); gl.uniform1f(decalProgram.locations.analysis, window.INK_ATLAS_ANALYSIS_ON ? 1 : 0); gl.uniform3fv(decalProgram.locations.analysisColor, riskColour); gl.bindBuffer(gl.ARRAY_BUFFER, mesh.pb); gl.vertexAttribPointer(decalProgram.locations.pos, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.pos);
+      gl.uniform1f(decalProgram.locations.opacity, (tattoo.opacity ?? .92)*(xray&&clothingCoverage(tattoo.part,tattoo.v)?.38:1)); gl.uniform1f(decalProgram.locations.analysis, window.INK_ATLAS_ANALYSIS_ON ? 1 : 0); gl.uniform3fv(decalProgram.locations.analysisColor, riskColour); gl.bindBuffer(gl.ARRAY_BUFFER, mesh.pb); gl.vertexAttribPointer(decalProgram.locations.pos, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.pos);
       gl.bindBuffer(gl.ARRAY_BUFFER, mesh.nb); gl.vertexAttribPointer(decalProgram.locations.norm, 3, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.norm); gl.bindBuffer(gl.ARRAY_BUFFER, mesh.ub); gl.vertexAttribPointer(decalProgram.locations.uv, 2, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(decalProgram.locations.uv);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ib); gl.bindTexture(gl.TEXTURE_2D, mesh.texture); gl.drawElements(gl.TRIANGLES, mesh.indices.length, gl.UNSIGNED_SHORT, 0);
     }
-    gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.BLEND); gl.depthMask(true);
+    gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.BLEND); gl.depthMask(true);gl.enable(gl.DEPTH_TEST);
   }
 
   const drawSceneBase = drawScene;
   drawScene = function drawSceneWithProjectedDecals() {
-    const shouldRender = dirtyScene; drawSceneBase(); if (shouldRender) { renderAppearanceLayers(); renderMeshAppearanceAssets(); renderProjectedDecals(); }
+    const shouldRender = dirtyScene;if(shouldRender)window.INK_ATLAS_BODY_CLIP_BOXES=appearanceBodyClipBoxes();drawSceneBase(); if (shouldRender) {
+      // Ink is painted on the skin first. The depth buffer then lets every
+      // garment hide precisely the pixels it physically covers.
+      renderProjectedDecals();renderAppearanceLayers();renderMeshAppearanceAssets();
+    }
   };
 
   const originalRenderInspector = renderInspector;
@@ -1302,9 +1609,9 @@
         if (['balanced', 'soft', 'angular', 'androgynous'].includes(imported.bodySettings.frame)) bodySettings.frame = imported.bodySettings.frame;
         if (/^#[0-9a-f]{6}$/i.test(imported.bodySettings.skinTone || '')) bodySettings.skinTone = imported.bodySettings.skinTone;
         if (Number.isFinite(imported.bodySettings.heightCm)) bodySettings.heightCm = Math.max(130, Math.min(220, imported.bodySettings.heightCm));
-        for (const key of ['chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize']) if (Number.isFinite(imported.bodySettings[key])) bodySettings[key] = imported.bodySettings[key];
-        { const importedBreastSize=Number(bodySettings.breastSize); bodySettings.breastSize=Number.isFinite(importedBreastSize)?Math.max(0,Math.min(200,importedBreastSize)):50; }
-        for (const key of ['lipColor', 'lipTonePosition', 'facialHairColor', 'facialHairTonePosition', 'eyebrowColor', 'eyebrowTonePosition', 'eyelashColor', 'eyelashTonePosition', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'clothingXRay', 'renderQuality']) if (imported.bodySettings[key] !== undefined) bodySettings[key] = imported.bodySettings[key];
+        for (const key of ['chestCm', 'waistCm', 'hipsCm', 'bicepsCm', 'thighsCm', 'shoulderCm', 'breastSize', 'pecSize', 'buttSize', 'muscleDefinition']) if (Number.isFinite(imported.bodySettings[key])) bodySettings[key] = imported.bodySettings[key];
+        { const importedBreastSize=Number(bodySettings.breastSize); bodySettings.breastSize=Number.isFinite(importedBreastSize)?Math.max(0,Math.min(400,importedBreastSize)):50; bodySettings.pecSize=clamp(Number(bodySettings.pecSize)||50,0,250);bodySettings.buttSize=clamp(Number(bodySettings.buttSize)||50,0,200);bodySettings.muscleDefinition=clamp(Number(bodySettings.muscleDefinition)||0,0,100); }
+        for (const key of ['lipColor', 'lipTonePosition', 'hairColor', 'hairTonePosition', 'facialHairColor', 'facialHairTonePosition', 'eyebrowColor', 'eyebrowTonePosition', 'eyelashColor', 'eyelashTonePosition', 'eyeStyle', 'eyebrowStyle', 'eyelashStyle', 'fingerNailStyle', 'toeNailStyle', 'noseShape', 'earShape', 'cheekShape', 'eyeColor', 'renderQuality']) if (imported.bodySettings[key] !== undefined) bodySettings[key] = imported.bodySettings[key];
         bodySettings.equippedAssets = Array.isArray(imported.bodySettings.equippedAssets) ? imported.bodySettings.equippedAssets.filter(id => appearanceById.has(id)).slice(0,20) : [];
         bodySettings.equippedAssets.forEach(id => loadAppearanceAsset(id).catch(error => console.warn(error)));
         window.INK_ATLAS_BODY_PROFILE = bodySettings.profile;
@@ -1372,7 +1679,7 @@
     $('bodyModelType').onchange = event => {
       const next = event.target.value === 'female' ? 'female' : 'male';
       if (next === bodySettings.modelType) return;
-      const defaults = next === 'female' ? {heightCm:165,chestCm:91,waistCm:74,hipsCm:99,bicepsCm:28,thighsCm:58,shoulderCm:39,breastSize:50} : {heightCm:178,chestCm:96,waistCm:82,hipsCm:96,bicepsCm:32,thighsCm:56,shoulderCm:44,breastSize:50};
+      const defaults = next === 'female' ? {heightCm:165,chestCm:91,waistCm:74,hipsCm:99,bicepsCm:28,thighsCm:58,shoulderCm:39,breastSize:50,pecSize:50,buttSize:50} : {heightCm:178,chestCm:96,waistCm:82,hipsCm:96,bicepsCm:32,thighsCm:56,shoulderCm:44,breastSize:50,pecSize:50,buttSize:50};
       Object.assign(bodySettings, defaults, { modelType: next });
       localStorage.setItem('inkAtlas_body_model', next); saveLayout(false);
       modelStatus.textContent = `Switching to the ${next === 'female' ? 'feminine' : 'masculine'} body…`;
@@ -1507,7 +1814,6 @@
       const loaded=await loadAnatomicalGLB(file,()=>generation===bundledModelLoadGeneration);
       if(!loaded||generation!==bundledModelLoadGeneration)return;
       updateAppearanceBodyMask();
-      if (needsSurfaceCoordinateMigration) migrateLegacySurfaceCoordinates();
       if (restoredPose) setPose(restoredPose);
       $('glCanvas').style.visibility = 'visible';
       const heightScale = bodySettings.heightCm / 178, armFactor = Math.max(pose.leftShoulder || 0, pose.rightShoulder || 0) / 155, legFactor=Math.max(Math.abs(pose.leftHip||0),Math.abs(pose.rightHip||0))/55;
@@ -1515,10 +1821,17 @@
       camDist = clamp((matchMedia('(max-width: 780px)').matches ? 13.8 : 12.7) * heightScale + armFactor * 3.2 + legFactor * 1.4, 11, 18.5);
       requestDraw();
       modelStatus.textContent = `Anatomical body · ${importedRig.vertexCount.toLocaleString()} vertices · ready to pose.`;
+      try { localStorage.removeItem('inkAtlas_model_load_error'); } catch (_) {}
       button.textContent = 'Reload realistic body';
     } catch (error) {
       modelStatus.textContent = error.message;
       $('glCanvas').style.visibility = 'hidden';
+      try { localStorage.setItem('inkAtlas_model_load_error', JSON.stringify({
+        release: '1.6.71', at: new Date().toISOString(), model: window.INK_ATLAS_SELECTED_BODY_MODEL,
+        payloadLength: window.INK_ATLAS_MODEL_BASE64?.length || 0, message: error.message, stack: error.stack || '',
+        webgl2: typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext,
+        userAgent: navigator.userAgent
+      })); } catch (_) {}
       toast('The high-definition body could not load. Use Reload to try again.');
       console.error(error);
     } finally {
@@ -1526,23 +1839,6 @@
       overlay.classList.remove('on');
       button.disabled = false;
     }
-  }
-
-  function migrateLegacySurfaceCoordinates() {
-    const templates = Object.fromEntries(buildParts().map(part => [part.id, part]));
-    for (const tattoo of tattoos) {
-      const part = partById[tattoo.part], template = templates[tattoo.part] || templates.torso;
-      if (!part?.restPositions || !template) continue;
-      let best = Infinity, bestIndex = -1;
-      for (let i = 0; i < part.restPositions.length; i += 3) {
-        const point = [part.restPositions[i], part.restPositions[i + 1], part.restPositions[i + 2]], row = loftRowAt(template, point[1]);
-        const legacyU = (Math.atan2(point[0] - row[1], point[2] - row[2]) / (2 * Math.PI) + 1.5) % 1, legacyV = clamp((point[1] - template.ymin) / template.length, 0, 1);
-        let du = Math.abs(tattoo.u - legacyU); du = Math.min(du, 1 - du); const dv = (tattoo.v - legacyV) * 1.15, distance = du * du + dv * dv;
-        if (distance < best) { best = distance; bestIndex = i / 3; }
-      }
-      if (bestIndex >= 0) { tattoo.u = ((part.uvs[bestIndex * 2] % 1) + 1) % 1; tattoo.v = clamp(part.uvs[bestIndex * 2 + 1], .002, .998); }
-    }
-    needsSurfaceCoordinateMigration = false; selectedId = null; parts.forEach(part => part.dirty = true); updateUI(); saveLayout(false);
   }
 
   function installMobileShell() {
@@ -1594,15 +1890,29 @@
   async function equipAppearanceAsset(id) {
     const item=appearanceById.get(id);if(!item)throw new Error('Unknown MakeHuman asset');
     await loadAppearanceAsset(id);
+    ensureMeshAppearanceAsset(id);
     const multi=new Set(['Body accessories','Underlayers']);
     bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id&&(multi.has(item.category)||appearanceById.get(current)?.category!==item.category));
     bodySettings.equippedAssets.push(id);syncNativeEyeVisibility();updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();return item;
   }
   function removeAppearanceAsset(id){bodySettings.equippedAssets=(bodySettings.equippedAssets||[]).filter(current=>current!==id);syncNativeEyeVisibility();updateAppearanceBodyMask();parts.forEach(part=>part.dirty=true);requestDraw();}
-  function appearanceAssetStats(id){const mesh=meshAppearanceCache.get(id);if(!mesh)return null;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity],restMin=[Infinity,Infinity,Infinity],restMax=[-Infinity,-Infinity,-Infinity];for(let i=0;i<mesh.positions.length;i+=3)for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],mesh.positions[i+axis]);max[axis]=Math.max(max[axis],mesh.positions[i+axis]);restMin[axis]=Math.min(restMin[axis],mesh.restPositions[i+axis]);restMax[axis]=Math.max(restMax[axis],mesh.restPositions[i+axis]);}return {vertices:mesh.positions.length/3,min,max,restMin,restMax,finite:[...min,...max].every(Number.isFinite)&&!mesh.fitStats?.invalidVertices,backingTriangles:(mesh.backing?.count||0)/3,...mesh.fitStats};}
+  function appearanceAssetStats(id){const mesh=meshAppearanceCache.get(id);if(!mesh)return null;const min=[Infinity,Infinity,Infinity],max=[-Infinity,-Infinity,-Infinity],restMin=[Infinity,Infinity,Infinity],restMax=[-Infinity,-Infinity,-Infinity],referenced=new Uint8Array(mesh.positions.length/3);for(const vertex of mesh.indices)referenced[vertex]=1;for(let vertex=0;vertex<referenced.length;vertex++){if(!referenced[vertex])continue;const i=vertex*3;for(let axis=0;axis<3;axis++){min[axis]=Math.min(min[axis],mesh.positions[i+axis]);max[axis]=Math.max(max[axis],mesh.positions[i+axis]);restMin[axis]=Math.min(restMin[axis],mesh.restPositions[i+axis]);restMax[axis]=Math.max(restMax[axis],mesh.restPositions[i+axis]);}}return {vertices:mesh.positions.length/3,renderedVertices:referenced.reduce((sum,value)=>sum+value,0),min,max,restMin,restMax,finite:[...min,...max].every(Number.isFinite)&&!mesh.fitStats?.invalidVertices,backingTriangles:(mesh.backing?.count||0)/3,materialOpacity:mesh.material?.opacity,alphaCoverage:mesh.alphaMap?{opaqueFraction:mesh.alphaMap.opaqueFraction,sampledOpaqueFraction:mesh.alphaMap.sampledOpaqueFraction,sampledLowFraction:mesh.alphaMap.sampledLowFraction,sampledMean:mesh.alphaMap.sampledMean}:null,textureTransparent:appearanceUsesTextureTransparency(mesh),...mesh.fitStats};}
+  function bodyMorphRegionStats(){
+    if(!importedRig?.neutralPoint||!importedRig?.worldPoint)return null;
+    const regions={
+      sternum:point=>Math.abs(point[0])<.065&&point[1]>1.38&&point[1]<2.02&&point[2]>.05,
+      breastLobes:point=>Math.abs(Math.abs(point[0])-.285)<.19&&point[1]>1.35&&point[1]<2.10&&point[2]>.05,
+      pecPlate:point=>Math.abs(point[0])>.09&&Math.abs(point[0])<.68&&point[1]>1.42&&point[1]<2.08&&point[2]>-.15,
+      pecSternum:point=>Math.abs(point[0])<.025&&point[1]>1.45&&point[1]<2.04&&point[2]>-.15,
+      centralPelvis:point=>Math.abs(point[0])<.12&&point[1]>-.68&&point[1]<.10&&point[2]<-.08,
+      gluteLobes:point=>Math.abs(Math.abs(point[0])-.35)<.22&&point[1]>-.78&&point[1]<.08&&point[2]<-.08
+    },result={};
+    for(const [name,accept] of Object.entries(regions)){const sum=[0,0,0];let count=0;for(let vertex=0;vertex<importedRig.surfaceVertexCount;vertex++){const neutral=importedRig.neutralPoint(vertex);if(!accept(neutral))continue;const point=importedRig.worldPoint(vertex);for(let axis=0;axis<3;axis++)sum[axis]+=point[axis];count++;}result[name]={count,mean:count?sum.map(value=>value/count):[0,0,0]};}
+    return result;
+  }
   window.InkAtlasV7Bridge = {
     bodySettings, appearanceCatalog, measureTattooDistortion, decalMeshes, focusBodyRegion,
-    equipAppearanceAsset, removeAppearanceAsset, appearanceAssetStats, appearanceBodyMaskStats:()=>({...appearanceBodyMaskState}), appearancePerformanceStats:()=>({fitRevision:appearanceFitRevision,refits:appearanceRefits}), isAppearanceAssetEquipped:id=>(bodySettings.equippedAssets||[]).includes(id),
+    equipAppearanceAsset, removeAppearanceAsset, appearanceAssetStats, bodyMorphRegionStats, bodyPartStats:id=>{const part=partById[id];return part?positionBounds(part.positions):null;}, visibleAppearanceAssetIds:()=>activeMeshAppearanceAssets().map(entry=>entry.id), appearanceBodyMaskStats:()=>({...appearanceBodyMaskState}), appearancePassStats:()=>appearancePasses().map(({part,bounds,worldMin,worldMax,offset})=>({part,bounds,worldMin,worldMax,offset})), appearanceClipStats:()=>appearanceBodyClipBoxes(), appearancePerformanceStats:()=>({fitRevision:appearanceFitRevision,refits:appearanceRefits}), isAppearanceAssetEquipped:id=>(bodySettings.equippedAssets||[]).includes(id),
     resetAnalysisBaselines: () => { for (const mesh of decalMeshes.values()) mesh.neutralPositions = null; },
     markAllDirty: () => { parts.forEach(part => part.dirty = true); requestDraw(); },
     updateClothing: () => { parts.forEach(part => part.dirty = true); requestDraw(); },

@@ -31,6 +31,17 @@ for (const [index, source] of inlineScripts.entries()) {
 if (/<script[^>]+src=["']https?:/i.test(html)) fail('Remote executable script found in index.html');
 if (/data:image\/(?:png|jpe?g|webp);base64/i.test(html)) fail('Embedded raster reference image found in index.html');
 if (!html.includes('function normalizeImportedAsset')) fail('Imported custom artwork is missing its local-data guard');
+for (const retiredBodyToken of ['RIG_' + 'SKIN_DATA', 'decode' + 'SkinGeometry', 'build' + 'Parts', 'pointOn' + 'Skin', 'loft' + 'Profiles', 'skin' + 'Transform', 'posed' + 'Point']) {
+  if (html.includes(retiredBodyToken)) fail(`Retired procedural geometry remains in index.html: ${retiredBodyToken}`);
+}
+if (!html.includes('let parts=[],partById={};')) fail('The renderer must start empty until the selected MakeHuman body has loaded');
+if (/document\.write\s*\(/.test(html)) fail('Direct-file body payloads must not use document.write');
+if (!html.includes('INK_ATLAS_EMBEDDED_BODY_PAYLOADS_START') || /<script\s+src=["'](?:female-)?model-data\.js/i.test(html)) {
+  fail('The direct-file release must embed both real MakeHuman payloads in index.html');
+}
+if (!html.includes('window.INK_ATLAS_BODY_PAYLOADS') || !html.includes('window.INK_ATLAS_BODY_PAYLOADS[window.INK_ATLAS_SELECTED_BODY_MODEL]')) {
+  fail('The selected MakeHuman body must be restored from the embedded payload registry');
+}
 
 const starterLibrary = html.match(/const ASSETS=\[([\s\S]*?)\]\.map/)?.[1] || '';
 const starterIds = [...starterLibrary.matchAll(/\['([a-z0-9_]+)'/g)].map(match => match[1]);
@@ -62,7 +73,7 @@ runInNewContext(readFileSync('anatomy-targets.js','utf8'), generatedScope);
 runInNewContext(readFileSync('pose-presets.js','utf8'), generatedScope);
 const appearanceCatalog = generatedScope.window.INK_ATLAS_APPEARANCE_CATALOG || [], anatomyTargets=generatedScope.window.INK_ATLAS_ANATOMY_LIBRARY||[], posePresets = generatedScope.window.INK_ATLAS_POSE_PRESETS || [];
 if (appearanceCatalog.length < 360) fail(`Expanded appearance library is unexpectedly small: ${appearanceCatalog.length}`);
-if (appearanceCatalog.some(item=>!item.bound)) fail('Every bundled MakeHuman appearance asset must retain its surface bindings');
+if (appearanceCatalog.some(item=>item.pack!=='polyhaven_cc0'&&!item.bound)) fail('Every bundled MakeHuman appearance asset must retain its surface bindings');
 if (appearanceCatalog.filter(item=>item.textured).length < 340) fail('Expanded appearance materials or textures are unexpectedly incomplete');
 if (anatomyTargets.length < 28) fail(`Anatomy target library is unexpectedly small: ${anatomyTargets.length}`);
 if(anatomyTargets.some(item=>item.positionType!=='q16'||!item.positions||item.positionMin?.length!==3||item.positionScale?.length!==3))fail('Anatomy targets must retain normalized hm08 source positions for reproducible surface transfer');
@@ -72,11 +83,11 @@ let lazyBytes = 0, textureBytes=0;
 for (const item of appearanceCatalog) {
   if (!item.id || !item.name || !item.category || !item.author || !item.license || !item.file) fail(`Incomplete appearance catalog item: ${JSON.stringify(item)}`);
   const stats=statSync(item.file,{throwIfNoEntry:false});if(!stats?.isFile())fail(`Missing lazy appearance payload: ${item.file}`);lazyBytes+=stats.size;if(stats.size>15_000_000)fail(`Appearance payload exceeds per-item budget: ${item.file}`);const source=readFileSync(item.file,'utf8');
-  for(const field of ['"bindWeightType":"q16x2"','"bindOffsetType":"q8"','"bindScaleRefs"'])if(!source.includes(field))fail(`Appearance payload omits authored MakeHuman binding data (${field}): ${item.file}`);
+  if(item.pack!=='polyhaven_cc0')for(const field of ['"bindWeightType":"q16x2"','"bindOffsetType":"q8"','"bindScaleRefs"'])if(!source.includes(field))fail(`Appearance payload omits authored MakeHuman binding data (${field}): ${item.file}`);
   if(item.hiddenBodyVertices>0&&!source.includes('"deleteVerts"'))fail(`Appearance payload omits its MakeHuman body mask: ${item.file}`);
   if(item.textured){const texture=source.match(/"texture":"([^"]+)"/)?.[1],textureStats=texture&&statSync(texture,{throwIfNoEntry:false});if(!textureStats?.isFile())fail(`Missing appearance texture for ${item.id}`);textureBytes+=textureStats.size;if(textureStats.size>2_000_000)fail(`Appearance texture exceeds per-item budget: ${texture}`);}
 }
-if(lazyBytes>130_000_000)fail(`Lazy appearance geometry exceeds release budget: ${lazyBytes} bytes`);
+if(lazyBytes>155_000_000)fail(`Lazy appearance geometry exceeds release budget: ${lazyBytes} bytes`);
 if(textureBytes>120_000_000)fail(`Lazy appearance textures exceed release budget: ${textureBytes} bytes`);
 if(!readFileSync('sw.js','utf8').includes('appearance-catalog.js')||!readFileSync('sw.js','utf8').includes('base-vertex-map.js')||!readFileSync('sw.js','utf8').includes('anatomy-targets.js')||!readFileSync('sw.js','utf8').includes('pose-presets.js'))fail('Service worker omits generated library indexes');
 

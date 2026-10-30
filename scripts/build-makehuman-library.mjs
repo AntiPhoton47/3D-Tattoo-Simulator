@@ -1,16 +1,18 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join } from 'node:path';
 import { tmpdir } from 'node:os';
+import vm from 'node:vm';
 
-const downloads = process.argv[2];
-if (!downloads) throw new Error('Usage: node scripts/build-makehuman-library.mjs <folder-containing-MakeHuman-zips>');
+const append=process.argv.includes('--append'),downloads=process.argv.slice(2).find(value=>!value.startsWith('--'));
+if (!downloads) throw new Error('Usage: node scripts/build-makehuman-library.mjs <folder-containing-MakeHuman-zips> [--append]');
 
-const packPattern = /^(bodyparts0[456]|dress0[12]|eyebrows01|eyelashes01|glasses0[12]|gloves01|hair0[12]|hats03|pants0[12]|shirts0[123]|shoes0[123]|skirts0[12]|underwear0[1234])(?:_cc0|_ccby|_cc-by)\.zip$|^makehuman_system_assets_cc0\.zip$/i;
+const packPattern = /^(bodyparts0[456]|dress0[12]|eyebrows01|eyelashes01|glasses0[12]|gloves01|hair0[12]|hats03|jewelry0[12]|pants0[12]|shirts0[123]|shoes0[123]|skirts0[12]|underwear0[1234])(?:_cc0|_ccby|_cc-by)\.zip$|^makehuman_system_assets_cc0\.zip$/i;
 const categoryFor = (name,entry,assetName) => {
   if(/^makehuman_system/i.test(name)&&!/^eyes\//i.test(entry))return null;
   if(/^eyes\//i.test(entry))return 'Eyes';if(/^eyebrows/i.test(name))return 'Eyebrows';if(/^eyelashes/i.test(name))return 'Eyelashes';
   if(/^bodyparts/i.test(name)){if(/toe/i.test(assetName)&&/nail/i.test(assetName))return 'Toe nails';if(/(?:finger)?nails?/i.test(assetName))return 'Finger nails';if(/beard|moustache|mustache/i.test(assetName))return 'Facial hair';return 'Body details';}
+  if(/^jewelry/i.test(name)){if(/anklet/i.test(assetName))return 'Body accessories';if(/ring|band/i.test(assetName)&&!/ear|nose|septum|navel|belly/i.test(assetName))return 'Rings';if(/bracelet|bangle|wrist/i.test(assetName))return 'Wrist accessories';if(/necklace|choker|collar|medal/i.test(assetName))return 'Necklaces';return 'Body accessories';}
   return ({
   dress: 'Dresses', glasses: 'Eyewear', gloves: 'Gloves', hair: 'Hair', hats: 'Hats',
   pants: 'Bottoms', shirts: 'Tops', shoes: 'Shoes', skirts: 'Skirts', underwear: 'Underlayers'
@@ -115,8 +117,9 @@ function quantizeRange(values,levels=65535,Type=Uint16Array,components=3) {
 }
 
 const outputDir = 'assets/appearance-library',textureDir='assets/appearance-textures',temporary=mkdtempSync(join(tmpdir(),'ink-atlas-materials-'));
-rmSync(outputDir, { recursive: true, force: true }); rmSync(textureDir,{recursive:true,force:true});mkdirSync(outputDir, { recursive: true });mkdirSync(textureDir,{recursive:true});
-const packs = readdirSync(downloads).filter(name => packPattern.test(name)).sort(), catalog = [], skipped = [];
+if(!append){rmSync(outputDir, { recursive: true, force: true });rmSync(textureDir,{recursive:true,force:true});}mkdirSync(outputDir, { recursive: true });mkdirSync(textureDir,{recursive:true});
+let catalog=[];if(append&&existsSync('appearance-catalog.js')){const context={window:{}};vm.runInNewContext(readFileSync('appearance-catalog.js','utf8'),context);catalog=Array.isArray(context.window.INK_ATLAS_APPEARANCE_CATALOG)?context.window.INK_ATLAS_APPEARANCE_CATALOG:[];}
+const existingIds=new Set(catalog.map(item=>item.id)),packs = readdirSync(downloads).filter(name => packPattern.test(name)).sort(), skipped = [];
 for (const packFile of packs) {
   const zip = join(downloads, packFile), pack = packFile.replace(/\.zip$/i, ''), entries = zipList(zip);
   const jsonEntry = entries.find(entry => entry.toLowerCase().endsWith('.json')); let metadata = {};
@@ -138,7 +141,7 @@ for (const packFile of packs) {
       if(texture&&material.opacity<=0)material.opacity=1;
       payload.material=material;if(texture)payload.texture=texture;
       writeFileSync(join(outputDir, `${slug}.js`), `window.INK_ATLAS_ASSET_PAYLOADS=window.INK_ATLAS_ASSET_PAYLOADS||{};window.INK_ATLAS_ASSET_PAYLOADS[${JSON.stringify(slug)}]=${JSON.stringify(payload)};\n`);
-      catalog.push({ id:slug, name:cleanName(mhName,author,category), category, pack, license:clean(meta.license) || (/cc0/i.test(pack)?'CC0':'CC-BY'), author, source:clean(meta.source), compatibility, bound:Boolean(bindings), textured:Boolean(texture), hiddenBodyVertices:deleteVerts.length, vertices:geometry.vertexCount, triangles:geometry.triangleCount, file:`assets/appearance-library/${slug}.js` });
+      const record={ id:slug, name:cleanName(mhName,author,category), category, pack, license:clean(meta.license) || (/cc0/i.test(pack)?'CC0':'CC-BY'), author, source:clean(meta.source), compatibility, bound:Boolean(bindings), textured:Boolean(texture), hiddenBodyVertices:deleteVerts.length, vertices:geometry.vertexCount, triangles:geometry.triangleCount, file:`assets/appearance-library/${slug}.js` };if(existingIds.has(slug)){catalog[catalog.findIndex(item=>item.id===slug)]=record;}else{catalog.push(record);existingIds.add(slug);}
     } catch (error) { skipped.push(`${packFile}: ${basename(mhEntry)} (${error.message})`); }
   }
 }
