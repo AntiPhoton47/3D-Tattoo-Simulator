@@ -1827,7 +1827,7 @@
       modelStatus.textContent = error.message;
       $('glCanvas').style.visibility = 'hidden';
       try { localStorage.setItem('inkAtlas_model_load_error', JSON.stringify({
-        release: '1.6.71', at: new Date().toISOString(), model: window.INK_ATLAS_SELECTED_BODY_MODEL,
+        release: '1.6.72', at: new Date().toISOString(), model: window.INK_ATLAS_SELECTED_BODY_MODEL,
         payloadLength: window.INK_ATLAS_MODEL_BASE64?.length || 0, message: error.message, stack: error.stack || '',
         webgl2: typeof WebGL2RenderingContext !== 'undefined' && gl instanceof WebGL2RenderingContext,
         userAgent: navigator.userAgent
